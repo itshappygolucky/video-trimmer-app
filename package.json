@@ -1,0 +1,45 @@
+{
+  "name": "video-trimmer-pro",
+  "version": "1.0.0",
+  "description": "A lossless video trimming desktop app",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder",
+    "build-mac": "electron-builder --mac",
+    "build-win": "electron-builder --win",
+    "build-linux": "electron-builder --linux"
+  },
+  "author": "Your Name",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^27.0.0",
+    "electron-builder": "^24.6.4"
+  },
+  "dependencies": {
+    "@ffmpeg/ffmpeg": "^0.12.6"
+  },
+  "build": {
+    "appId": "com.yourname.videotrimmer",
+    "productName": "Video Trimmer Pro",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "**/*",
+      "!node_modules/.bin"
+    ],
+    "mac": {
+      "category": "public.app-category.video",
+      "target": "dmg"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.ico"
+    },
+    "linux": {
+      "target": "AppImage",
+      "category": "Video"
+    }
+  }
+}

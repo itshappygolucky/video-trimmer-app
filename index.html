@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Trimmer Pro</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg: #f5f5f7;
+            --surface: rgba(255, 255, 255, 0.78);
+            --surface-strong: rgba(255, 255, 255, 0.94);
+            --text: #1d1d1f;
+            --muted: #6e6e73;
+            --border: rgba(0, 0, 0, 0.16);
+            --button-border: rgba(0, 0, 0, 0.24);
+            --accent: #0071e3;
+            --accent-strong: #005bb5;
+            --success: #34c759;
+            --danger: #ff3b30;
+            --shadow: 0 18px 60px rgba(0, 0, 0, 0.12);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background:
+                radial-gradient(circle at top left, rgba(255, 255, 255, 0.95), transparent 34%),
+                linear-gradient(145deg, #fbfbfd 0%, #f5f5f7 42%, #e9e9ed 100%);
+            height: 100vh;
+            overflow: hidden;
+            color: var(--text);
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            padding: 24px;
+        }
+
+        /* Header */
+        .header {
+            margin-bottom: 18px;
+        }
+
+        .header h1 {
+            font-size: clamp(1.9rem, 3vw, 3rem);
+            font-weight: 700;
+            letter-spacing: -0.04em;
+            margin-bottom: 4px;
+        }
+
+        .header p {
+            color: var(--muted);
+            font-size: 0.98em;
+            letter-spacing: -0.01em;
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            display: flex;
+            gap: 18px;
+            min-height: 0;
+        }
+
+        .library-panel {
+            width: 360px;
+            min-width: 340px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 28px;
+            padding: 16px;
+            box-shadow: var(--shadow);
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            min-height: 0;
+        }
+
+        .library-header h2 {
+            font-size: 1.05em;
+            letter-spacing: -0.03em;
+            margin-bottom: 4px;
+        }
+
+        .library-header p {
+            color: var(--muted);
+            font-size: 0.82em;
+            line-height: 1.35;
+        }
+
+        .folder-summary {
+            min-height: 18px;
+            color: var(--muted);
+            font-size: 0.8em;
+            line-height: 1.35;
+            word-break: break-word;
+        }
+
+        .source-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .folder-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        .folder-toolbar label {
+            color: var(--muted);
+            font-size: 0.8em;
+            font-weight: 600;
+        }
+
+        .folder-toolbar select {
+            min-width: 174px;
+            padding: 8px 10px;
+            border: 1px solid var(--button-border);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.86);
+            color: var(--text);
+            font: inherit;
+            font-size: 0.85em;
+        }
+
+        .video-grid {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 10px;
+            overflow-y: auto;
+            padding-right: 4px;
+            min-height: 0;
+        }
+
+        .video-card {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 10px;
+            width: 100%;
+            height: 92px;
+            min-width: 0;
+            padding: 8px;
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            background: rgba(255, 255, 255, 0.7);
+            color: var(--text);
+            text-align: left;
+        }
+
+        .video-card-main {
+            display: grid;
+            grid-template-columns: 104px 1fr;
+            align-items: center;
+            gap: 12px;
+            height: 100%;
+            min-width: 0;
+            padding: 0;
+            border: 0;
+            background: transparent;
+            color: inherit;
+            text-align: left;
+        }
+
+        .video-card:hover {
+            background: white;
+            transform: translateY(-1px);
+        }
+
+        .video-card.selected {
+            border-color: rgba(0, 113, 227, 0.45);
+            box-shadow: 0 0 0 4px rgba(0, 113, 227, 0.1);
+        }
+
+        .video-thumb {
+            width: 104px;
+            height: 68px;
+            border-radius: 12px;
+            background: #1d1d1f;
+            object-fit: cover;
+        }
+
+        .video-thumb-placeholder {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: rgba(255, 255, 255, 0.65);
+            font-size: 0.72em;
+        }
+
+        .video-card-title {
+            display: -webkit-box;
+            overflow: hidden;
+            overflow-wrap: anywhere;
+            line-clamp: 2;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            font-size: 0.96em;
+            font-weight: 600;
+            line-height: 1.25;
+        }
+
+        .video-card-meta {
+            margin-top: 5px;
+            color: var(--muted);
+            font-size: 0.86em;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .video-delete-button {
+            align-self: center;
+            width: 32px;
+            height: 32px;
+            padding: 0;
+            border-color: rgba(255, 59, 48, 0.36);
+            color: #b42318;
+            background: rgba(255, 59, 48, 0.08);
+            font-size: 1em;
+        }
+
+        .video-delete-button:hover {
+            background: rgba(255, 59, 48, 0.16);
+        }
+
+        /* Video Panel */
+        .video-panel {
+            flex: 2;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 28px;
+            padding: 18px;
+            box-shadow: var(--shadow);
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .video-container {
+            flex: 1;
+            background: #000;
+            border-radius: 22px;
+            overflow: hidden;
+            position: relative;
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+        }
+
+        #videoPlayer {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            cursor: pointer;
+        }
+
+        .video-controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 6px;
+            width: fit-content;
+            max-width: 100%;
+            margin: 0 auto;
+            padding: 6px;
+            background: rgba(255, 255, 255, 0.82);
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            box-shadow: 0 10px 28px rgba(0, 0, 0, 0.08);
+        }
+
+        .trim-slider-panel {
+            background: rgba(255, 255, 255, 0.68);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 14px;
+        }
+
+        .slider-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85em;
+            margin-bottom: 10px;
+            color: var(--muted);
+        }
+
+        .trim-slider {
+            position: relative;
+            height: 46px;
+            user-select: none;
+        }
+
+        .slider-track,
+        .keyframe-markers,
+        .selected-range {
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            height: 12px;
+            border-radius: 999px;
+        }
+
+        .slider-track {
+            background: rgba(0, 0, 0, 0.09);
+            overflow: hidden;
+        }
+
+        .keyframe-markers {
+            pointer-events: none;
+            z-index: 3;
+        }
+
+        .keyframe-marker {
+            position: absolute;
+            top: -10px;
+            width: 1px;
+            height: 32px;
+            background: rgba(0, 0, 0, 0.28);
+        }
+
+        .selected-range {
+            background: rgba(0, 113, 227, 0.28);
+            z-index: 2;
+        }
+
+        .playhead-marker {
+            position: absolute;
+            top: 3px;
+            bottom: 3px;
+            width: 2px;
+            background: var(--accent);
+            transform: translateX(-50%);
+            z-index: 4;
+            pointer-events: none;
+        }
+
+        .timeline-tooltip {
+            position: absolute;
+            top: -28px;
+            padding: 4px 7px;
+            border-radius: 999px;
+            background: rgba(29, 29, 31, 0.88);
+            color: #fff;
+            font-size: 0.75em;
+            white-space: nowrap;
+            transform: translateX(-50%);
+            pointer-events: none;
+            opacity: 0;
+            z-index: 6;
+        }
+
+        .timeline-tooltip.visible {
+            opacity: 1;
+        }
+
+        .trim-handle {
+            position: absolute;
+            top: 50%;
+            z-index: 5;
+            width: 18px;
+            height: 34px;
+            padding: 0;
+            flex: none;
+            border: 2px solid var(--surface-strong);
+            border-radius: 999px;
+            background: var(--accent);
+            box-shadow: 0 6px 16px rgba(0, 113, 227, 0.28);
+            transform: translate(-50%, -50%);
+            cursor: ew-resize;
+        }
+
+        .trim-handle.end {
+            background: var(--text);
+        }
+
+        .trim-handle:focus {
+            outline: 3px solid rgba(0, 113, 227, 0.25);
+            outline-offset: 2px;
+        }
+
+        .trim-handle:active {
+            transform: translate(-50%, -50%) scale(0.98);
+        }
+
+        .slider-help {
+            margin-top: 8px;
+            font-size: 0.78em;
+            color: var(--muted);
+        }
+
+        /* Controls Panel */
+        .controls-panel {
+            flex: 1;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 28px;
+            padding: 18px;
+            box-shadow: var(--shadow);
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .file-info {
+            background: var(--surface-strong);
+            border: 1px solid var(--border);
+            padding: 16px;
+            border-radius: 20px;
+        }
+
+        .file-info h3 {
+            margin-bottom: 10px;
+            font-size: 1em;
+            letter-spacing: -0.02em;
+        }
+
+        .file-info p {
+            font-size: 0.85em;
+            color: var(--muted);
+            word-break: break-all;
+            margin-top: 5px;
+        }
+
+        .file-info-actions {
+            display: flex;
+            margin-top: 12px;
+        }
+
+        .file-info-actions button {
+            flex: 1;
+        }
+
+        .trim-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .time-input-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        .time-input {
+            flex: 1;
+        }
+
+        .time-input label {
+            display: block;
+            color: var(--muted);
+            font-size: 0.78em;
+            font-weight: 600;
+            letter-spacing: 0.01em;
+            margin-bottom: 5px;
+        }
+
+        .time-input input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            background: var(--surface-strong);
+            color: var(--text);
+            border-radius: 14px;
+            font-family: 'SF Mono', ui-monospace, Menlo, Consolas, monospace;
+            font-size: 0.95em;
+        }
+
+        .time-input input:focus {
+            outline: none;
+            border-color: rgba(0, 113, 227, 0.6);
+            box-shadow: 0 0 0 4px rgba(0, 113, 227, 0.12);
+        }
+
+        .buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        button {
+            flex: 0 0 auto;
+            padding: 11px 14px;
+            border: 1px solid var(--button-border);
+            border-radius: 999px;
+            font-size: 0.94em;
+            font-weight: 600;
+            letter-spacing: -0.01em;
+            cursor: pointer;
+            transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+        }
+
+        .video-controls button,
+        .buttons button {
+            flex: 1;
+        }
+
+        .video-controls .trim-action-button {
+            flex: 0 1 112px;
+            min-width: 96px;
+        }
+
+        .video-controls .icon-button {
+            flex: 0 0 42px;
+            width: 42px;
+            height: 42px;
+            padding: 0;
+            font-size: 1.05em;
+            line-height: 1;
+        }
+
+        .video-controls .play-button {
+            flex-basis: 48px;
+            width: 48px;
+            height: 48px;
+            font-size: 1.08em;
+        }
+
+        .video-controls .reset-button {
+            color: var(--muted);
+            font-size: 0.95em;
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            border-color: var(--accent-strong);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            background: var(--accent-strong);
+            box-shadow: 0 10px 24px rgba(0, 113, 227, 0.26);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.8);
+            border-color: var(--button-border);
+            color: var(--text);
+        }
+
+        .btn-secondary:hover {
+            background: white;
+            transform: translateY(-2px);
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+
+        .btn-success {
+            background: var(--text);
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #000;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+        }
+
+        .status {
+            margin-top: 10px;
+            padding: 12px 14px;
+            background: var(--surface-strong);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            font-size: 0.85em;
+            color: var(--muted);
+        }
+
+        .status.success {
+            background: rgba(52, 199, 89, 0.12);
+            border-color: rgba(52, 199, 89, 0.28);
+            color: #1f7a3a;
+        }
+
+        .status.error {
+            background: rgba(255, 59, 48, 0.12);
+            border-color: rgba(255, 59, 48, 0.28);
+            color: #b42318;
+        }
+
+        .status.info {
+            background: rgba(0, 113, 227, 0.1);
+            border-color: rgba(0, 113, 227, 0.22);
+            color: #005bb5;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .main-content {
+                flex-direction: column;
+            }
+
+            .library-panel {
+                width: 100%;
+                min-width: 0;
+                max-height: 260px;
+            }
+            
+            .container {
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Video Trimmer Pro</h1>
+            <p>Lossless cuts with clear timing and simple controls.</p>
+        </div>
+
+        <div class="main-content">
+            <div class="library-panel">
+                <div class="library-header">
+                    <h2>Folder</h2>
+                    <p>Open a folder and pick clips from thumbnails.</p>
+                </div>
+                <div class="source-buttons">
+                    <button class="btn-primary" id="selectFolderBtn">Open Folder</button>
+                    <button class="btn-secondary" id="selectVideoBtn">Open File</button>
+                </div>
+                <div class="folder-summary" id="folderSummary">No folder selected.</div>
+                <div class="folder-toolbar">
+                    <label for="videoSort">Sort</label>
+                    <select id="videoSort">
+                        <option value="name-asc">Name A-Z</option>
+                        <option value="name-desc">Name Z-A</option>
+                        <option value="duration-asc">Duration shortest</option>
+                        <option value="duration-desc">Duration longest</option>
+                        <option value="size-desc">Size largest</option>
+                        <option value="size-asc">Size smallest</option>
+                    </select>
+                </div>
+                <div class="video-grid" id="videoGrid"></div>
+            </div>
+
+            <div class="video-panel">
+                <div class="video-container">
+                    <video id="videoPlayer" preload="auto"></video>
+                </div>
+                <div class="video-controls">
+                    <button class="btn-secondary trim-action-button" id="setStartBtn">Set Start</button>
+                    <button class="btn-secondary icon-button" id="prevKeyframeBtn" aria-label="Seek previous keyframe" title="Previous keyframe">‹</button>
+                    <button class="btn-primary icon-button play-button" id="playPauseBtn" aria-label="Play video" title="Play">▶</button>
+                    <button class="btn-secondary icon-button" id="nextKeyframeBtn" aria-label="Seek next keyframe" title="Next keyframe">›</button>
+                    <button class="btn-secondary trim-action-button" id="setEndBtn">Set End</button>
+                    <button class="btn-secondary icon-button reset-button" id="resetBtn" aria-label="Reset trim" title="Reset trim">↺</button>
+                </div>
+                <div class="trim-slider-panel">
+                    <div class="slider-labels">
+                        <span id="sliderStartLabel">Start: 0:00.0</span>
+                        <span id="sliderEndLabel">End: 0:00.0</span>
+                    </div>
+                    <div class="trim-slider" id="trimSlider">
+                        <div class="slider-track"></div>
+                        <div class="keyframe-markers" id="keyframeMarkers"></div>
+                        <div class="selected-range" id="selectedRange"></div>
+                        <div class="playhead-marker" id="playheadMarker"></div>
+                        <div class="timeline-tooltip" id="timelineTooltip">0.0s</div>
+                        <button class="trim-handle start" id="startHandle" type="button" aria-label="Trim start"></button>
+                        <button class="trim-handle end" id="endHandle" type="button" aria-label="Trim end"></button>
+                    </div>
+                    <div class="slider-help">Vertical lines show lossless cut points. Drag the handles to adjust the trim.</div>
+                </div>
+            </div>
+
+            <div class="controls-panel">
+                <div class="file-info" id="fileInfo">
+                    <h3>No Video Loaded</h3>
+                    <p>Open a folder or select a video file to begin.</p>
+                </div>
+
+                <div class="trim-controls">
+                    <div class="time-input-group">
+                        <div class="time-input">
+                            <label>Start Time (seconds)</label>
+                            <input type="number" id="startTime" step="0.1" value="0">
+                        </div>
+                        <div class="time-input">
+                            <label>End Time (seconds)</label>
+                            <input type="number" id="endTime" step="0.1" value="0">
+                        </div>
+                    </div>
+                    
+                    <div class="buttons">
+                        <button class="btn-success" id="trimBtn">Trim and Save</button>
+                    </div>
+                </div>
+
+                <div class="status" id="status">
+                    Ready to trim videos
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="renderer.js"></script>
+</body>
+</html>
