@@ -9,7 +9,8 @@ const VIDEO_EXTENSIONS = new Set(['.mp4', '.mov', '.avi', '.mkv', '.webm']);
 let menuSettings = {
     appendCutTimes: true,
     rememberLastFolder: false,
-    showDeleteOption: true
+    showDeleteOption: true,
+    autoAdvance: false
 };
 
 function runCommand(command, args) {
@@ -146,6 +147,16 @@ async function generateThumbnail(inputPath) {
     return fs.existsSync(thumbnailPath) ? thumbnailPath : null;
 }
 
+async function buildVideoEntry(videoPath) {
+    const fileInfo = getVideoFileInfo(videoPath);
+
+    return {
+        ...fileInfo,
+        duration: await getVideoDuration(videoPath),
+        thumbnailPath: await generateThumbnail(videoPath)
+    };
+}
+
 async function getFolderVideos(folderPath) {
     const entries = fs.readdirSync(folderPath, { withFileTypes: true });
     const videoPaths = entries
@@ -155,13 +166,7 @@ async function getFolderVideos(folderPath) {
     const videos = [];
 
     for (const videoPath of videoPaths) {
-        const fileInfo = getVideoFileInfo(videoPath);
-
-        videos.push({
-            ...fileInfo,
-            duration: await getVideoDuration(videoPath),
-            thumbnailPath: await generateThumbnail(videoPath)
-        });
+        videos.push(await buildVideoEntry(videoPath));
     }
 
     return {
@@ -170,12 +175,140 @@ async function getFolderVideos(folderPath) {
     };
 }
 
+async function getVideosFromDroppedPaths(paths) {
+    const directories = [];
+    const files = [];
+
+    for (const droppedPath of paths) {
+        if (!droppedPath || !fs.existsSync(droppedPath)) {
+            continue;
+        }
+
+        const stats = fs.statSync(droppedPath);
+
+        if (stats.isDirectory()) {
+            directories.push(droppedPath);
+        } else if (VIDEO_EXTENSIONS.has(path.extname(droppedPath).toLowerCase())) {
+            files.push(droppedPath);
+        }
+    }
+
+    if (directories.length === 1 && files.length === 0) {
+        return getFolderVideos(directories[0]);
+    }
+
+    const videos = [];
+    const seenPaths = new Set();
+
+    for (const directoryPath of directories) {
+        const folderResult = await getFolderVideos(directoryPath);
+
+        for (const video of folderResult.videos) {
+            if (!seenPaths.has(video.path)) {
+                seenPaths.add(video.path);
+                videos.push(video);
+            }
+        }
+    }
+
+    for (const filePath of files) {
+        if (seenPaths.has(filePath)) {
+            continue;
+        }
+
+        seenPaths.add(filePath);
+        videos.push(await buildVideoEntry(filePath));
+    }
+
+    videos.sort((a, b) => a.name.localeCompare(b.name));
+
+    let folderPath = null;
+
+    if (directories.length === 1 && files.length === 0) {
+        folderPath = directories[0];
+    } else if (directories.length === 1) {
+        folderPath = directories[0];
+    } else if (files.length === 1 && directories.length === 0) {
+        folderPath = null;
+    } else if (files.length > 0) {
+        const parentDirs = new Set(files.map((filePath) => path.dirname(filePath)));
+
+        folderPath = parentDirs.size === 1 ? [...parentDirs][0] : null;
+    }
+
+    return {
+        folderPath,
+        videos
+    };
+}
+
+function sendShortcut(action) {
+    mainWindow?.webContents.send('shortcut', action);
+}
+
 function buildApplicationMenu() {
     const template = [
         {
             label: 'File',
             submenu: [
+                {
+                    label: 'Open File',
+                    accelerator: 'CmdOrCtrl+O',
+                    click: () => sendShortcut('open-file')
+                },
+                {
+                    label: 'Open Folder',
+                    accelerator: 'CmdOrCtrl+Shift+O',
+                    click: () => sendShortcut('open-folder')
+                },
+                { type: 'separator' },
+                {
+                    label: 'Trim and Save',
+                    accelerator: 'CmdOrCtrl+Enter',
+                    click: () => sendShortcut('trim')
+                },
+                { type: 'separator' },
                 { role: 'quit' }
+            ]
+        },
+        {
+            label: 'Playback',
+            submenu: [
+                {
+                    label: 'Play / Pause (Space)',
+                    click: () => sendShortcut('play-pause')
+                },
+                { type: 'separator' },
+                {
+                    label: 'Set Start (I)',
+                    click: () => sendShortcut('set-start')
+                },
+                {
+                    label: 'Set End (O)',
+                    click: () => sendShortcut('set-end')
+                },
+                {
+                    label: 'Reset Trim (R)',
+                    click: () => sendShortcut('reset')
+                },
+                { type: 'separator' },
+                {
+                    label: 'Previous Keyframe (,)',
+                    click: () => sendShortcut('prev-keyframe')
+                },
+                {
+                    label: 'Next Keyframe (.)',
+                    click: () => sendShortcut('next-keyframe')
+                },
+                { type: 'separator' },
+                {
+                    label: 'Seek Back 1 Second (Shift+Left)',
+                    click: () => sendShortcut('seek-back')
+                },
+                {
+                    label: 'Seek Forward 1 Second (Shift+Right)',
+                    click: () => sendShortcut('seek-forward')
+                }
             ]
         },
         {
@@ -239,6 +372,18 @@ function buildApplicationMenu() {
                         menuSettings.showDeleteOption = menuItem.checked;
                         mainWindow?.webContents.send('menu-setting-changed', {
                             key: 'showDeleteOption',
+                            value: menuItem.checked
+                        });
+                    }
+                },
+                {
+                    label: 'Auto-Advance After Trim',
+                    type: 'checkbox',
+                    checked: menuSettings.autoAdvance,
+                    click: (menuItem) => {
+                        menuSettings.autoAdvance = menuItem.checked;
+                        mainWindow?.webContents.send('menu-setting-changed', {
+                            key: 'autoAdvance',
                             value: menuItem.checked
                         });
                     }
@@ -318,6 +463,14 @@ ipcMain.handle('select-video-folder', async (event, folderPath) => {
     }
 
     return null;
+});
+
+ipcMain.handle('handle-dropped-paths', async (event, paths) => {
+    if (!Array.isArray(paths) || paths.length === 0) {
+        return null;
+    }
+
+    return getVideosFromDroppedPaths(paths);
 });
 
 ipcMain.handle('delete-video', async (event, filePath) => {

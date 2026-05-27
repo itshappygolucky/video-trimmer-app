@@ -109,6 +109,31 @@
             gap: 8px;
         }
 
+        .library-search {
+            width: 100%;
+            padding: 9px 12px;
+            border: 1px solid var(--button-border);
+            border-radius: 12px;
+            background: var(--bg);
+            color: var(--text);
+            font-size: 0.86em;
+        }
+
+        .library-search::placeholder {
+            color: var(--muted);
+        }
+
+        .library-search:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.12);
+        }
+
+        .library-panel.drag-over {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.12);
+        }
+
         .folder-toolbar {
             display: flex;
             align-items: center;
@@ -628,16 +653,24 @@
         </div>
 
         <div class="main-content">
-            <div class="library-panel">
+            <div class="library-panel" id="libraryPanel">
                 <div class="library-header">
                     <h2>Folder</h2>
-                    <p>Open a folder and pick clips from thumbnails.</p>
+                    <p>Open a folder, search clips, or drag videos and folders here.</p>
                 </div>
                 <div class="source-buttons">
-                    <button class="btn-primary" id="selectFolderBtn">Open Folder</button>
-                    <button class="btn-secondary" id="selectVideoBtn">Open File</button>
+                    <button class="btn-primary" id="selectFolderBtn" title="Ctrl+Shift+O">Open Folder</button>
+                    <button class="btn-secondary" id="selectVideoBtn" title="Ctrl+O">Open File</button>
                 </div>
                 <div class="folder-summary" id="folderSummary">No folder selected.</div>
+                <input
+                    type="search"
+                    id="librarySearch"
+                    class="library-search"
+                    placeholder="Search videos..."
+                    autocomplete="off"
+                    spellcheck="false"
+                >
                 <div class="folder-toolbar">
                     <label for="videoSort">Sort</label>
                     <select id="videoSort">
@@ -657,12 +690,12 @@
                     <video id="videoPlayer" preload="auto"></video>
                 </div>
                 <div class="video-controls">
-                    <button class="btn-secondary trim-action-button" id="setStartBtn">Set Start</button>
-                    <button class="btn-secondary icon-button" id="prevKeyframeBtn" aria-label="Seek previous keyframe" title="Previous keyframe">‹</button>
-                    <button class="btn-primary icon-button play-button" id="playPauseBtn" aria-label="Play video" title="Play">▶</button>
-                    <button class="btn-secondary icon-button" id="nextKeyframeBtn" aria-label="Seek next keyframe" title="Next keyframe">›</button>
-                    <button class="btn-secondary trim-action-button" id="setEndBtn">Set End</button>
-                    <button class="btn-secondary icon-button reset-button" id="resetBtn" aria-label="Reset trim" title="Reset trim">↺</button>
+                    <button class="btn-secondary trim-action-button" id="setStartBtn" title="Set start (I)">Set Start</button>
+                    <button class="btn-secondary icon-button" id="prevKeyframeBtn" aria-label="Seek previous keyframe" title="Previous keyframe (,)">‹</button>
+                    <button class="btn-primary icon-button play-button" id="playPauseBtn" aria-label="Play video" title="Play / pause (Space)">▶</button>
+                    <button class="btn-secondary icon-button" id="nextKeyframeBtn" aria-label="Seek next keyframe" title="Next keyframe (.)">›</button>
+                    <button class="btn-secondary trim-action-button" id="setEndBtn" title="Set end (O)">Set End</button>
+                    <button class="btn-secondary icon-button reset-button" id="resetBtn" aria-label="Reset trim" title="Reset trim (R)">↺</button>
                 </div>
                 <div class="trim-slider-panel">
                     <div class="slider-labels">
@@ -678,7 +711,7 @@
                         <button class="trim-handle start" id="startHandle" type="button" aria-label="Trim start"></button>
                         <button class="trim-handle end" id="endHandle" type="button" aria-label="Trim end"></button>
                     </div>
-                    <div class="slider-help">Vertical lines show lossless cut points. Drag the handles to adjust the trim.</div>
+                    <div class="slider-help">Vertical lines show lossless cut points. Drag the handles to adjust the trim. Shortcuts: Space play · I/O in-out · , . keyframes · Shift+←→ seek · R reset.</div>
                 </div>
             </div>
 
@@ -701,7 +734,7 @@
                     </div>
                     
                     <div class="buttons">
-                        <button class="btn-success" id="trimBtn">Trim and Save</button>
+                        <button class="btn-success" id="trimBtn" title="Ctrl+Enter">Trim and Save</button>
                     </div>
                 </div>
 

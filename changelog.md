@@ -2,6 +2,21 @@
 
 All notable changes to **Video Trimmer Pro** are documented in this file.
 
+## [1.1.0] - 2026-05-27
+
+### Added
+
+- **Keyboard shortcuts** — File menu accelerators (`Ctrl+O`, `Ctrl+Shift+O`, `Ctrl+Enter`) and playback shortcuts (Space, I/O, R, `,` `.`, Shift+arrows)
+- **Auto-advance after trim** — Optional setting to load the next clip in the library after a successful export
+- **Library search** — Filter folder videos by filename with live match counts
+- **Drag and drop** — Drop video files or folders anywhere on the window to load the library
+
+### Changed
+
+- Keyframe shortcuts moved from `[` `]` to `,` `.`
+
+[1.1.0]: https://github.com/itshappygolucky/video-trimmer-app/releases/tag/v1.1.0
+
 ## [1.0.0] - 2026-05-27
 
 First public release.

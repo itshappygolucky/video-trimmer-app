@@ -1,6 +1,6 @@
 {
   "name": "video-trimmer-pro",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "A lossless video trimming desktop app",
   "main": "main.js",
   "scripts": {
@@ -35,7 +35,7 @@
     },
     "win": {
       "target": "nsis",
-      "icon": "assets/icon.ico"
+      "signAndEditExecutable": false
     },
     "linux": {
       "target": "AppImage",

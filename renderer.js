@@ -12,7 +12,8 @@ let currentVideo = null;
 const settings = {
     appendCutTimes: true,
     rememberLastFolder: false,
-    showDeleteOption: true
+    showDeleteOption: true,
+    autoAdvance: false
 };
 
 const videoPlayer = document.getElementById('videoPlayer');
@@ -30,6 +31,8 @@ const endTimeInput = document.getElementById('endTime');
 const fileInfo = document.getElementById('fileInfo');
 const statusDiv = document.getElementById('status');
 const folderSummary = document.getElementById('folderSummary');
+const librarySearch = document.getElementById('librarySearch');
+const libraryPanel = document.getElementById('libraryPanel');
 const videoGrid = document.getElementById('videoGrid');
 const videoSortSelect = document.getElementById('videoSort');
 const trimSlider = document.getElementById('trimSlider');
@@ -44,6 +47,7 @@ const sliderEndLabel = document.getElementById('sliderEndLabel');
 const APPEND_CUT_TIMES_SETTING = 'videoTrimmer.appendCutTimes';
 const REMEMBER_LAST_FOLDER_SETTING = 'videoTrimmer.rememberLastFolder';
 const SHOW_DELETE_OPTION_SETTING = 'videoTrimmer.showDeleteOption';
+const AUTO_ADVANCE_SETTING = 'videoTrimmer.autoAdvance';
 const LAST_FOLDER_SETTING = 'videoTrimmer.lastFolder';
 const MIN_TRIM_SECONDS = 0.1;
 const KEYFRAME_SEEK_EPSILON = 0.05;
@@ -369,6 +373,7 @@ function loadSettings() {
     const savedAppendCutTimes = localStorage.getItem(APPEND_CUT_TIMES_SETTING);
     const savedRememberLastFolder = localStorage.getItem(REMEMBER_LAST_FOLDER_SETTING);
     const savedShowDeleteOption = localStorage.getItem(SHOW_DELETE_OPTION_SETTING);
+    const savedAutoAdvance = localStorage.getItem(AUTO_ADVANCE_SETTING);
 
     settings.appendCutTimes = savedAppendCutTimes === null
         ? true
@@ -377,6 +382,7 @@ function loadSettings() {
     settings.showDeleteOption = savedShowDeleteOption === null
         ? true
         : savedShowDeleteOption === 'true';
+    settings.autoAdvance = savedAutoAdvance === 'true';
 
     window.electronAPI.updateMenuSettings(settings);
 }
@@ -385,6 +391,7 @@ function saveSettings() {
     localStorage.setItem(APPEND_CUT_TIMES_SETTING, settings.appendCutTimes.toString());
     localStorage.setItem(REMEMBER_LAST_FOLDER_SETTING, settings.rememberLastFolder.toString());
     localStorage.setItem(SHOW_DELETE_OPTION_SETTING, settings.showDeleteOption.toString());
+    localStorage.setItem(AUTO_ADVANCE_SETTING, settings.autoAdvance.toString());
 
     if (settings.rememberLastFolder && currentFolderPath) {
         localStorage.setItem(LAST_FOLDER_SETTING, currentFolderPath);
@@ -399,7 +406,7 @@ function setSetting(key, value, updateMenu = true) {
     settings[key] = value;
     saveSettings();
     renderLoadedVideoInfo();
-    renderFolderVideos(getSortedFolderVideos());
+    refreshFolderLibrary();
 
     if (updateMenu) {
         window.electronAPI.updateMenuSettings(settings);
@@ -481,6 +488,20 @@ function renderLoadedVideoInfo() {
     }
 }
 
+function getLibrarySearchQuery() {
+    return librarySearch.value.trim().toLowerCase();
+}
+
+function filterFolderVideosBySearch(videos) {
+    const query = getLibrarySearchQuery();
+
+    if (!query) {
+        return videos;
+    }
+
+    return videos.filter((video) => video.name.toLowerCase().includes(query));
+}
+
 function getSortedFolderVideos() {
     const videos = [...folderVideos];
 
@@ -501,6 +522,58 @@ function getSortedFolderVideos() {
                 return a.name.localeCompare(b.name);
         }
     });
+}
+
+function getVisibleFolderVideos() {
+    return filterFolderVideosBySearch(getSortedFolderVideos());
+}
+
+function updateFolderSummary() {
+    const total = folderVideos.length;
+    const visible = getVisibleFolderVideos().length;
+    const query = getLibrarySearchQuery();
+
+    if (total === 0) {
+        folderSummary.textContent = currentFolderPath
+            ? 'No supported videos found in this folder.'
+            : 'No folder selected.';
+        return;
+    }
+
+    if (currentFolderPath) {
+        let summary = `${total} video${total === 1 ? '' : 's'} in ${currentFolderPath}`;
+
+        if (query) {
+            summary = `${visible} of ${total} match "${librarySearch.value.trim()}"`;
+        }
+
+        folderSummary.textContent = summary;
+        return;
+    }
+
+    if (total === 1) {
+        folderSummary.textContent = query
+            ? `${visible} of 1 match "${librarySearch.value.trim()}"`
+            : '1 selected video file';
+        return;
+    }
+
+    let summary = `${total} videos`;
+
+    if (query) {
+        summary = `${visible} of ${total} match "${librarySearch.value.trim()}"`;
+    }
+
+    folderSummary.textContent = summary;
+}
+
+function refreshFolderLibrary() {
+    updateFolderSummary();
+    renderFolderVideos(getVisibleFolderVideos());
+}
+
+function clearLibrarySearch() {
+    librarySearch.value = '';
 }
 
 async function openVideo(video) {
@@ -531,9 +604,13 @@ function renderFolderVideos(videos) {
     videoGrid.innerHTML = '';
 
     if (videos.length === 0) {
-        if (currentFolderPath) {
-            folderSummary.textContent = 'No supported videos found in this folder.';
+        if (folderVideos.length > 0 && getLibrarySearchQuery()) {
+            const emptyMessage = document.createElement('p');
+            emptyMessage.className = 'folder-summary';
+            emptyMessage.textContent = `No videos match "${librarySearch.value.trim()}".`;
+            videoGrid.appendChild(emptyMessage);
         }
+
         return;
     }
 
@@ -635,7 +712,7 @@ async function deleteVideo(video) {
         }
 
         folderVideos = folderVideos.filter((folderVideo) => folderVideo.path !== video.path);
-        renderFolderVideos(getSortedFolderVideos());
+        refreshFolderLibrary();
 
         if (wasCurrentVideo) {
             clearCurrentVideo();
@@ -662,8 +739,8 @@ async function loadVideo() {
 
         currentFolderPath = null;
         folderVideos = [video];
-        folderSummary.textContent = '1 selected video file';
-        renderFolderVideos(getSortedFolderVideos());
+        clearLibrarySearch();
+        refreshFolderLibrary();
         await openVideo(video);
     } catch (error) {
         console.error('Error loading video:', error);
@@ -682,22 +759,101 @@ async function loadVideoFolder(folderPath = null) {
             return;
         }
 
-        folderVideos = result.videos || [];
-        currentFolderPath = result.folderPath;
-        folderSummary.textContent = `${folderVideos.length} video${folderVideos.length === 1 ? '' : 's'} in ${result.folderPath}`;
-        renderFolderVideos(getSortedFolderVideos());
+        await applyFolderLibraryResult(result);
 
-        if (settings.rememberLastFolder) {
+        if (settings.rememberLastFolder && result.folderPath) {
             localStorage.setItem(LAST_FOLDER_SETTING, result.folderPath);
-        }
-
-        if (!currentVideoPath && folderVideos.length > 0) {
-            await openVideo(folderVideos[0]);
         }
     } catch (error) {
         console.error('Error loading folder:', error);
         updateStatus('Error loading folder: ' + (error.message || 'Unknown error'), 'error');
     }
+}
+
+async function applyFolderLibraryResult(result) {
+    folderVideos = result.videos || [];
+    currentFolderPath = result.folderPath || null;
+    clearLibrarySearch();
+    refreshFolderLibrary();
+
+    if (!currentVideoPath && folderVideos.length > 0) {
+        await openVideo(getVisibleFolderVideos()[0] || folderVideos[0]);
+    }
+}
+
+async function loadDroppedItems(paths) {
+    if (!paths.length) {
+        return;
+    }
+
+    updateStatus('Loading dropped items...', 'info');
+
+    try {
+        const result = await window.electronAPI.handleDroppedPaths(paths);
+
+        if (!result?.videos?.length) {
+            updateStatus('No supported videos in drop', 'error');
+            return;
+        }
+
+        await applyFolderLibraryResult(result);
+
+        if (settings.rememberLastFolder && result.folderPath) {
+            localStorage.setItem(LAST_FOLDER_SETTING, result.folderPath);
+        }
+
+        const count = result.videos.length;
+        updateStatus(`Loaded ${count} video${count === 1 ? '' : 's'} from drop`, 'success');
+    } catch (error) {
+        console.error('Error loading dropped items:', error);
+        updateStatus('Error loading dropped items: ' + (error.message || 'Unknown error'), 'error');
+    }
+}
+
+function getDroppedPaths(event) {
+    return [...event.dataTransfer.files]
+        .map((file) => file.path)
+        .filter((filePath) => typeof filePath === 'string' && filePath.length > 0);
+}
+
+function setupDragAndDrop() {
+    let dragActive = false;
+
+    window.addEventListener('dragenter', (event) => {
+        event.preventDefault();
+
+        if (!dragActive) {
+            dragActive = true;
+            libraryPanel.classList.add('drag-over');
+        }
+    });
+
+    window.addEventListener('dragover', (event) => {
+        event.preventDefault();
+
+        if (event.dataTransfer) {
+            event.dataTransfer.dropEffect = 'copy';
+        }
+    });
+
+    window.addEventListener('dragleave', (event) => {
+        if (
+            event.clientX <= 0
+            || event.clientY <= 0
+            || event.clientX >= window.innerWidth
+            || event.clientY >= window.innerHeight
+        ) {
+            dragActive = false;
+            libraryPanel.classList.remove('drag-over');
+        }
+    });
+
+    window.addEventListener('drop', async (event) => {
+        event.preventDefault();
+        dragActive = false;
+        libraryPanel.classList.remove('drag-over');
+        await loadDroppedItems(getDroppedPaths(event));
+    });
 }
 
 async function restoreLastFolder() {
@@ -736,6 +892,130 @@ function resetTimes() {
     updateTrimSlider();
     videoPlayer.currentTime = 0;
     updateStatus('Times reset', 'info');
+}
+
+function seekBySeconds(delta) {
+    if (!currentVideoPath || !videoDuration) {
+        return;
+    }
+
+    videoPlayer.currentTime = clamp(videoPlayer.currentTime + delta, 0, videoDuration);
+    updatePlayheadMarker();
+}
+
+function runShortcutAction(action) {
+    switch (action) {
+        case 'open-file':
+            loadVideo();
+            break;
+        case 'open-folder':
+            loadVideoFolder();
+            break;
+        case 'trim':
+            trimVideo();
+            break;
+        case 'play-pause':
+            togglePlayback();
+            break;
+        case 'set-start':
+            setStart();
+            break;
+        case 'set-end':
+            setEnd();
+            break;
+        case 'reset':
+            resetTimes();
+            break;
+        case 'prev-keyframe':
+            seekKeyframe('previous');
+            break;
+        case 'next-keyframe':
+            seekKeyframe('next');
+            break;
+        case 'seek-back':
+            seekBySeconds(-1);
+            break;
+        case 'seek-forward':
+            seekBySeconds(1);
+            break;
+        default:
+            break;
+    }
+}
+
+function isEditableTarget(target) {
+    if (!target) {
+        return false;
+    }
+
+    const tag = target.tagName;
+
+    return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable;
+}
+
+function handlePlaybackShortcut(event) {
+    if (event.defaultPrevented || isEditableTarget(event.target)) {
+        return;
+    }
+
+    if (event.ctrlKey || event.altKey || event.metaKey) {
+        return;
+    }
+
+    if (event.shiftKey && event.key === 'ArrowLeft') {
+        event.preventDefault();
+        runShortcutAction('seek-back');
+        return;
+    }
+
+    if (event.shiftKey && event.key === 'ArrowRight') {
+        event.preventDefault();
+        runShortcutAction('seek-forward');
+        return;
+    }
+
+    if (event.shiftKey) {
+        return;
+    }
+
+    switch (event.key) {
+        case ' ':
+            event.preventDefault();
+            runShortcutAction('play-pause');
+            break;
+        case 'i':
+        case 'I':
+            runShortcutAction('set-start');
+            break;
+        case 'o':
+        case 'O':
+            runShortcutAction('set-end');
+            break;
+        case 'r':
+        case 'R':
+            runShortcutAction('reset');
+            break;
+        case ',':
+            runShortcutAction('prev-keyframe');
+            break;
+        case '.':
+            runShortcutAction('next-keyframe');
+            break;
+        default:
+            break;
+    }
+}
+
+async function advanceToNextVideo() {
+    const videos = getVisibleFolderVideos();
+    const currentIndex = videos.findIndex((video) => video.path === currentVideoPath);
+
+    if (currentIndex === -1 || currentIndex >= videos.length - 1) {
+        return false;
+    }
+
+    await openVideo(videos[currentIndex + 1]);
+    return true;
 }
 
 // Trim video
@@ -783,7 +1063,18 @@ async function trimVideo() {
                 ? ` Lossless range: ${formatTime(result.actualStartTime)} to ${formatTime(result.actualEndTime)}.`
                 : '';
 
-            updateStatus(`Success. Video saved to ${savePath} (${(result.size / (1024 * 1024)).toFixed(2)} MB).${trimDetails}`, 'success');
+            const successMessage = `Success. Video saved to ${savePath} (${(result.size / (1024 * 1024)).toFixed(2)} MB).${trimDetails}`;
+
+            if (settings.autoAdvance) {
+                const advanced = await advanceToNextVideo();
+
+                if (advanced) {
+                    updateStatus(`${successMessage} Loaded next clip: ${currentVideo.name}.`, 'success');
+                    return;
+                }
+            }
+
+            updateStatus(successMessage, 'success');
         }
     } catch (error) {
         console.error('Error trimming video:', error);
@@ -794,7 +1085,8 @@ async function trimVideo() {
 // Event listeners
 selectVideoBtn.addEventListener('click', loadVideo);
 selectFolderBtn.addEventListener('click', () => loadVideoFolder());
-videoSortSelect.addEventListener('change', () => renderFolderVideos(getSortedFolderVideos()));
+librarySearch.addEventListener('input', refreshFolderLibrary);
+videoSortSelect.addEventListener('change', refreshFolderLibrary);
 playPauseBtn.addEventListener('click', togglePlayback);
 videoPlayer.addEventListener('click', togglePlayback);
 prevKeyframeBtn.addEventListener('click', () => seekKeyframe('previous'));
@@ -804,6 +1096,8 @@ setEndBtn.addEventListener('click', setEnd);
 resetBtn.addEventListener('click', resetTimes);
 trimBtn.addEventListener('click', trimVideo);
 window.electronAPI.onMenuSettingChanged(({ key, value }) => setSetting(key, value, false));
+window.electronAPI.onShortcut(runShortcutAction);
+document.addEventListener('keydown', handlePlaybackShortcut);
 startTimeInput.addEventListener('change', () => updateTimeFromInput('start'));
 endTimeInput.addEventListener('change', () => updateTimeFromInput('end'));
 trimSlider.addEventListener('pointerdown', beginTimelineScrub);
@@ -836,5 +1130,6 @@ videoPlayer.addEventListener('timeupdate', () => {
 
 // Initialize
 loadSettings();
+setupDragAndDrop();
 restoreLastFolder();
 console.log('Video Trimmer Pro loaded');
