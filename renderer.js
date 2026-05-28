@@ -8,12 +8,27 @@ let folderVideos = [];
 let playheadAnimationFrame = null;
 let currentFolderPath = null;
 let isScrubbingTimeline = false;
+let isTrimHandlePreviewing = false;
+let previewSeekRaf = null;
+let pendingPreviewTime = null;
+let scrubPreviewTime = null;
+let lastVideoSeekAt = 0;
+const SCRUB_SEEK_MIN_INTERVAL_MS = 80;
 let currentVideo = null;
+let currentAudioTracks = [];
+let selectedAudioTrackIndexes = [];
+let currentVideoStreamIndex = 0;
+let audioTrackSelectionsByPath = {};
 const settings = {
     appendCutTimes: true,
     rememberLastFolder: false,
     showDeleteOption: true,
-    autoAdvance: false
+    autoAdvance: false,
+    darkMode: false,
+    autoSaveEnabled: false,
+    autoSaveFolder: '',
+    promptDeleteSourceAfterTrim: false,
+    showNotifications: false
 };
 
 const videoPlayer = document.getElementById('videoPlayer');
@@ -25,11 +40,20 @@ const nextKeyframeBtn = document.getElementById('nextKeyframeBtn');
 const setStartBtn = document.getElementById('setStartBtn');
 const setEndBtn = document.getElementById('setEndBtn');
 const resetBtn = document.getElementById('resetBtn');
+const screenshotBtn = document.getElementById('screenshotBtn');
 const trimBtn = document.getElementById('trimBtn');
 const startTimeInput = document.getElementById('startTime');
 const endTimeInput = document.getElementById('endTime');
 const fileInfo = document.getElementById('fileInfo');
-const statusDiv = document.getElementById('status');
+const toastContainer = document.getElementById('toastContainer');
+const audioTracksBtn = document.getElementById('audioTracksBtn');
+const audioTracksModal = document.getElementById('audioTracksModal');
+const audioTracksList = document.getElementById('audioTracksList');
+const audioTracksSelectAllBtn = document.getElementById('audioTracksSelectAllBtn');
+const audioTracksCancelBtn = document.getElementById('audioTracksCancelBtn');
+const audioTracksApplyBtn = document.getElementById('audioTracksApplyBtn');
+const TOAST_DURATION_MS = 5000;
+let toastIdCounter = 0;
 const folderSummary = document.getElementById('folderSummary');
 const librarySearch = document.getElementById('librarySearch');
 const libraryPanel = document.getElementById('libraryPanel');
@@ -42,13 +66,26 @@ const playheadMarker = document.getElementById('playheadMarker');
 const timelineTooltip = document.getElementById('timelineTooltip');
 const startHandle = document.getElementById('startHandle');
 const endHandle = document.getElementById('endHandle');
-const sliderStartLabel = document.getElementById('sliderStartLabel');
-const sliderEndLabel = document.getElementById('sliderEndLabel');
 const APPEND_CUT_TIMES_SETTING = 'videoTrimmer.appendCutTimes';
 const REMEMBER_LAST_FOLDER_SETTING = 'videoTrimmer.rememberLastFolder';
 const SHOW_DELETE_OPTION_SETTING = 'videoTrimmer.showDeleteOption';
 const AUTO_ADVANCE_SETTING = 'videoTrimmer.autoAdvance';
+const DARK_MODE_SETTING = 'videoTrimmer.darkMode';
+const AUTO_SAVE_ENABLED_SETTING = 'videoTrimmer.autoSaveEnabled';
+const AUTO_SAVE_FOLDER_SETTING = 'videoTrimmer.autoSaveFolder';
+const PROMPT_DELETE_SOURCE_SETTING = 'videoTrimmer.promptDeleteSourceAfterTrim';
+const SHOW_NOTIFICATIONS_SETTING = 'videoTrimmer.showNotifications';
 const LAST_FOLDER_SETTING = 'videoTrimmer.lastFolder';
+const VIDEO_SORT_SETTING = 'videoTrimmer.videoSort';
+const AUDIO_TRACKS_SETTING = 'videoTrimmer.audioTrackSelections';
+const SORT_OPTIONS = new Set([
+    'name-asc',
+    'name-desc',
+    'duration-asc',
+    'duration-desc',
+    'size-desc',
+    'size-asc'
+]);
 const MIN_TRIM_SECONDS = 0.1;
 const KEYFRAME_SEEK_EPSILON = 0.05;
 
@@ -78,6 +115,70 @@ function formatDurationTime(seconds) {
         mins.toString().padStart(2, '0'),
         secs.toString().padStart(2, '0')
     ].join(':');
+}
+
+function formatEditableTime(seconds) {
+    if (!Number.isFinite(seconds)) {
+        return '00:00:00';
+    }
+
+    const total = Math.max(0, seconds);
+    const hrs = Math.floor(total / 3600);
+    const mins = Math.floor((total % 3600) / 60);
+    const secs = total % 60;
+    const hasFraction = Math.abs(secs - Math.floor(secs)) > 0.001;
+    const secStr = hasFraction
+        ? secs.toFixed(1).padStart(4, '0')
+        : Math.floor(secs).toString().padStart(2, '0');
+
+    return [
+        hrs.toString().padStart(2, '0'),
+        mins.toString().padStart(2, '0'),
+        secStr
+    ].join(':');
+}
+
+function parseTimeInput(value) {
+    const trimmed = String(value).trim();
+
+    if (!trimmed) {
+        return NaN;
+    }
+
+    if (/^\d+(\.\d+)?$/.test(trimmed)) {
+        return parseFloat(trimmed);
+    }
+
+    const parts = trimmed.split(':');
+
+    if (parts.length === 2) {
+        const mins = Number(parts[0]);
+        const secs = Number(parts[1]);
+
+        if (!Number.isFinite(mins) || !Number.isFinite(secs) || mins < 0 || secs < 0) {
+            return NaN;
+        }
+
+        return (mins * 60) + secs;
+    }
+
+    if (parts.length === 3) {
+        const hrs = Number(parts[0]);
+        const mins = Number(parts[1]);
+        const secs = Number(parts[2]);
+
+        if (!Number.isFinite(hrs) || !Number.isFinite(mins) || !Number.isFinite(secs) || hrs < 0 || mins < 0 || secs < 0) {
+            return NaN;
+        }
+
+        if (mins >= 60 || secs >= 60) {
+            return NaN;
+        }
+
+        return (hrs * 3600) + (mins * 60) + secs;
+    }
+
+    return NaN;
 }
 
 function formatBytes(bytes) {
@@ -136,8 +237,8 @@ function togglePlayback() {
 }
 
 function syncTimeInputs() {
-    startTimeInput.value = startTime.toFixed(1);
-    endTimeInput.value = endTime.toFixed(1);
+    startTimeInput.value = formatEditableTime(startTime);
+    endTimeInput.value = formatEditableTime(endTime);
 }
 
 function updateTrimSlider() {
@@ -148,13 +249,54 @@ function updateTrimSlider() {
     selectedRange.style.right = `${100 - endPercent}%`;
     startHandle.style.left = `${startPercent}%`;
     endHandle.style.left = `${endPercent}%`;
-    sliderStartLabel.textContent = `Start: ${formatTime(startTime)}`;
-    sliderEndLabel.textContent = `End: ${formatTime(endTime)}`;
     updatePlayheadMarker();
 }
 
-function updatePlayheadMarker() {
-    playheadMarker.style.left = `${getTimePercent(videoPlayer.currentTime || 0)}%`;
+function updateTimelineTimeLabel(time) {
+    if (!timelineTooltip) {
+        return;
+    }
+
+    if (!currentVideoPath || !videoDuration) {
+        timelineTooltip.classList.remove('visible');
+        return;
+    }
+
+    const clampedTime = clamp(time, 0, videoDuration);
+
+    timelineTooltip.textContent = formatEditableTime(clampedTime);
+    timelineTooltip.style.left = `${getTimePercent(clampedTime)}%`;
+    timelineTooltip.classList.add('visible');
+}
+
+function updatePlayheadMarker(time = videoPlayer.currentTime || 0) {
+    playheadMarker.style.left = `${getTimePercent(time)}%`;
+    updateTimelineTimeLabel(time);
+}
+
+function applyVideoSeek(targetTime) {
+    const clampedTime = clamp(targetTime, 0, videoDuration);
+
+    if (Math.abs(videoPlayer.currentTime - clampedTime) <= 0.02) {
+        updatePlayheadMarker(clampedTime);
+        return;
+    }
+
+    const useFastSeek = !isScrubbingTimeline
+        && !isTrimHandlePreviewing
+        && typeof videoPlayer.fastSeek === 'function';
+
+    if (useFastSeek) {
+        try {
+            videoPlayer.fastSeek(clampedTime);
+        } catch (error) {
+            videoPlayer.currentTime = clampedTime;
+        }
+    } else {
+        videoPlayer.currentTime = clampedTime;
+    }
+
+    updatePlayheadMarker(clampedTime);
 }
 
 function startPlayheadLoop() {
@@ -198,13 +340,100 @@ function renderLosslessCutPoints() {
     keyframeMarkers.appendChild(fragment);
 }
 
+function beginTrimHandlePreview() {
+    if (!currentVideoPath) {
+        return;
+    }
+
+    isTrimHandlePreviewing = true;
+    videoPlayer.pause();
+    updatePlayPauseButton();
+    stopPlayheadLoop();
+}
+
+function endTrimHandlePreview() {
+    flushScrubPreviewSeek();
+    isTrimHandlePreviewing = false;
+    scrubPreviewTime = null;
+    cancelPendingPreviewSeek();
+}
+
+function cancelPendingPreviewSeek() {
+    pendingPreviewTime = null;
+
+    if (previewSeekRaf !== null) {
+        cancelAnimationFrame(previewSeekRaf);
+        previewSeekRaf = null;
+    }
+}
+
+function previewVideoAt(time, { force = false } = {}) {
+    if (!currentVideoPath || !videoDuration) {
+        return;
+    }
+
+    const targetTime = clamp(time, 0, videoDuration);
+    const isScrubbing = isScrubbingTimeline || isTrimHandlePreviewing;
+
+    if (isScrubbing) {
+        scrubPreviewTime = targetTime;
+        updatePlayheadMarker(targetTime);
+
+        const now = performance.now();
+        const intervalElapsed = now - lastVideoSeekAt >= SCRUB_SEEK_MIN_INTERVAL_MS;
+        const canSeekNow = force || (!videoPlayer.seeking && intervalElapsed);
+
+        if (canSeekNow) {
+            lastVideoSeekAt = now;
+            applyVideoSeek(targetTime);
+        }
+
+        return;
+    }
+
+    pendingPreviewTime = targetTime;
+
+    if (previewSeekRaf !== null) {
+        return;
+    }
+
+    previewSeekRaf = requestAnimationFrame(() => {
+        previewSeekRaf = null;
+        const seekTime = pendingPreviewTime;
+        pendingPreviewTime = null;
+
+        if (!Number.isFinite(seekTime)) {
+            return;
+        }
+
+        applyVideoSeek(seekTime);
+
+        if (pendingPreviewTime !== null) {
+            previewVideoAt(pendingPreviewTime);
+            return;
+        }
+
+        if (!videoPlayer.paused) {
+            startPlayheadLoop();
+        }
+    });
+}
+
+function flushScrubPreviewSeek() {
+    if (!Number.isFinite(scrubPreviewTime)) {
+        return;
+    }
+
+    previewVideoAt(scrubPreviewTime, { force: true });
+}
+
 function setStartTime(time, seekVideo = false) {
     startTime = clamp(time, 0, Math.max(0, endTime - MIN_TRIM_SECONDS));
     syncTimeInputs();
     updateTrimSlider();
 
     if (seekVideo) {
-        videoPlayer.currentTime = startTime;
+        previewVideoAt(startTime);
     }
 }
 
@@ -214,15 +443,17 @@ function setEndTime(time, seekVideo = false) {
     updateTrimSlider();
 
     if (seekVideo) {
-        videoPlayer.currentTime = endTime;
+        previewVideoAt(endTime);
     }
 }
 
 function updateTimeFromInput(type) {
     const input = type === 'start' ? startTimeInput : endTimeInput;
-    const value = parseFloat(input.value);
+    const value = parseTimeInput(input.value);
 
     if (!Number.isFinite(value)) {
+        syncTimeInputs();
+        updateStatus('Invalid time. Use HH:MM:SS (e.g. 00:01:30)', 'error');
         return;
     }
 
@@ -253,11 +484,17 @@ function beginTrimHandleDrag(handle, event) {
     }
 
     event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    beginTrimHandlePreview();
     activeTrimHandle = handle;
     updateActiveTrimHandle(event);
 }
 
 function stopTrimHandleDrag() {
+    if (activeTrimHandle) {
+        endTrimHandlePreview();
+    }
+
     activeTrimHandle = null;
 }
 
@@ -270,8 +507,7 @@ function seekTimeline(event) {
         return;
     }
 
-    videoPlayer.currentTime = getSliderTime(event);
-    updatePlayheadMarker();
+    previewVideoAt(getSliderTime(event));
 }
 
 function beginTimelineScrub(event) {
@@ -284,7 +520,12 @@ function beginTimelineScrub(event) {
     }
 
     event.preventDefault();
+    trimSlider.setPointerCapture(event.pointerId);
     isScrubbingTimeline = true;
+    scrubPreviewTime = null;
+    videoPlayer.pause();
+    stopPlayheadLoop();
+    updatePlayPauseButton();
     seekTimeline(event);
 }
 
@@ -294,11 +535,16 @@ function updateTimelineScrub(event) {
     }
 
     seekTimeline(event);
-    updateTimelineTooltip(event);
 }
 
 function stopTimelineScrub() {
+    if (isScrubbingTimeline) {
+        flushScrubPreviewSeek();
+    }
+
     isScrubbingTimeline = false;
+    scrubPreviewTime = null;
+    cancelPendingPreviewSeek();
 }
 
 function seekKeyframe(direction) {
@@ -319,24 +565,6 @@ function seekKeyframe(direction) {
 
     videoPlayer.currentTime = targetKeyframe;
     updatePlayheadMarker();
-}
-
-function updateTimelineTooltip(event) {
-    if (!currentVideoPath || !videoDuration) {
-        return;
-    }
-
-    const rect = trimSlider.getBoundingClientRect();
-    const x = clamp(event.clientX - rect.left, 0, rect.width);
-    const time = (x / rect.width) * videoDuration;
-
-    timelineTooltip.textContent = `${time.toFixed(1)}s`;
-    timelineTooltip.style.left = `${x}px`;
-    timelineTooltip.classList.add('visible');
-}
-
-function hideTimelineTooltip() {
-    timelineTooltip.classList.remove('visible');
 }
 
 function formatFilenameTime(seconds) {
@@ -369,11 +597,134 @@ function buildDefaultSaveName(inputPath, start, end) {
     return `${name} ${formatFilenameTime(start)} - ${formatFilenameTime(end)}${extension}`;
 }
 
+function buildScreenshotFileName(inputPath, timeSeconds) {
+    const fileName = getFileName(inputPath);
+    const extensionIndex = fileName.lastIndexOf('.');
+    const name = extensionIndex > 0 ? fileName.slice(0, extensionIndex) : fileName;
+    const timeLabel = formatEditableTime(timeSeconds).replace(/:/g, '.');
+
+    return `${name} ${timeLabel}.png`;
+}
+
+function captureVideoFrameDataUrl() {
+    const width = videoPlayer.videoWidth;
+    const height = videoPlayer.videoHeight;
+
+    if (!width || !height) {
+        throw new Error('Video frame is not ready');
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+
+    const context = canvas.getContext('2d');
+
+    if (!context) {
+        throw new Error('Could not capture screenshot');
+    }
+
+    context.drawImage(videoPlayer, 0, 0, width, height);
+    return canvas.toDataURL('image/png');
+}
+
+async function resolveScreenshotSavePath(inputPath, timeSeconds) {
+    const fileName = buildScreenshotFileName(inputPath, timeSeconds);
+
+    if (settings.autoSaveEnabled) {
+        if (!settings.autoSaveFolder) {
+            updateStatus('Choose an auto-save folder in Settings first', 'error');
+            return null;
+        }
+
+        return window.electronAPI.resolveSavePath({
+            directory: settings.autoSaveFolder,
+            fileName
+        });
+    }
+
+    return window.electronAPI.screenshotSaveDialog({
+        defaultPath: fileName
+    });
+}
+
+async function saveScreenshot() {
+    if (!currentVideoPath) {
+        updateStatus('Please load a video first', 'error');
+        return;
+    }
+
+    if (videoPlayer.readyState < 2) {
+        updateStatus('Video is not ready for a screenshot yet', 'error');
+        return;
+    }
+
+    let imageData;
+
+    try {
+        imageData = captureVideoFrameDataUrl();
+    } catch (error) {
+        console.error('Error capturing screenshot:', error);
+        updateStatus(error.message || 'Could not capture screenshot', 'error');
+        return;
+    }
+
+    const savePath = await resolveScreenshotSavePath(currentVideoPath, videoPlayer.currentTime);
+
+    if (!savePath) {
+        if (!settings.autoSaveEnabled) {
+            updateStatus('Screenshot save cancelled', 'info');
+        }
+
+        return;
+    }
+
+    try {
+        const result = await window.electronAPI.saveScreenshot({
+            filePath: savePath,
+            imageData
+        });
+
+        if (result.success) {
+            const sizeMb = (result.size / (1024 * 1024)).toFixed(2);
+            updateStatus(`Screenshot saved to ${savePath} (${sizeMb} MB)`, 'success');
+        }
+    } catch (error) {
+        console.error('Error saving screenshot:', error);
+        updateStatus('Error saving screenshot: ' + (error.message || 'Unknown error'), 'error');
+    }
+}
+
+async function resolveTrimSavePath(inputPath, start, end) {
+    const fileName = buildDefaultSaveName(inputPath, start, end);
+
+    if (settings.autoSaveEnabled) {
+        if (!settings.autoSaveFolder) {
+            updateStatus('Choose an auto-save folder in Settings first', 'error');
+            return null;
+        }
+
+        return window.electronAPI.resolveSavePath({
+            directory: settings.autoSaveFolder,
+            fileName
+        });
+    }
+
+    return window.electronAPI.saveDialog({
+        defaultPath: fileName
+    });
+}
+
 function loadSettings() {
     const savedAppendCutTimes = localStorage.getItem(APPEND_CUT_TIMES_SETTING);
     const savedRememberLastFolder = localStorage.getItem(REMEMBER_LAST_FOLDER_SETTING);
     const savedShowDeleteOption = localStorage.getItem(SHOW_DELETE_OPTION_SETTING);
     const savedAutoAdvance = localStorage.getItem(AUTO_ADVANCE_SETTING);
+    const savedDarkMode = localStorage.getItem(DARK_MODE_SETTING);
+    const savedAutoSaveEnabled = localStorage.getItem(AUTO_SAVE_ENABLED_SETTING);
+    const savedAutoSaveFolder = localStorage.getItem(AUTO_SAVE_FOLDER_SETTING);
+    const savedPromptDeleteSource = localStorage.getItem(PROMPT_DELETE_SOURCE_SETTING);
+    const savedShowNotifications = localStorage.getItem(SHOW_NOTIFICATIONS_SETTING);
 
     settings.appendCutTimes = savedAppendCutTimes === null
         ? true
@@ -383,8 +734,31 @@ function loadSettings() {
         ? true
         : savedShowDeleteOption === 'true';
     settings.autoAdvance = savedAutoAdvance === 'true';
+    settings.darkMode = savedDarkMode === 'true';
+    settings.autoSaveEnabled = savedAutoSaveEnabled === 'true';
+    settings.autoSaveFolder = savedAutoSaveFolder || '';
+    settings.promptDeleteSourceAfterTrim = savedPromptDeleteSource === 'true';
+    settings.showNotifications = savedShowNotifications === 'true';
 
+    applyTheme();
+    loadSortPreference();
     window.electronAPI.updateMenuSettings(settings);
+}
+
+function applyTheme() {
+    document.documentElement.dataset.theme = settings.darkMode ? 'dark' : 'light';
+}
+
+function loadSortPreference() {
+    const savedSort = localStorage.getItem(VIDEO_SORT_SETTING);
+
+    if (savedSort && SORT_OPTIONS.has(savedSort)) {
+        videoSortSelect.value = savedSort;
+    }
+}
+
+function saveSortPreference() {
+    localStorage.setItem(VIDEO_SORT_SETTING, videoSortSelect.value);
 }
 
 function saveSettings() {
@@ -392,6 +766,11 @@ function saveSettings() {
     localStorage.setItem(REMEMBER_LAST_FOLDER_SETTING, settings.rememberLastFolder.toString());
     localStorage.setItem(SHOW_DELETE_OPTION_SETTING, settings.showDeleteOption.toString());
     localStorage.setItem(AUTO_ADVANCE_SETTING, settings.autoAdvance.toString());
+    localStorage.setItem(DARK_MODE_SETTING, settings.darkMode.toString());
+    localStorage.setItem(AUTO_SAVE_ENABLED_SETTING, settings.autoSaveEnabled.toString());
+    localStorage.setItem(AUTO_SAVE_FOLDER_SETTING, settings.autoSaveFolder);
+    localStorage.setItem(PROMPT_DELETE_SOURCE_SETTING, settings.promptDeleteSourceAfterTrim.toString());
+    localStorage.setItem(SHOW_NOTIFICATIONS_SETTING, settings.showNotifications.toString());
 
     if (settings.rememberLastFolder && currentFolderPath) {
         localStorage.setItem(LAST_FOLDER_SETTING, currentFolderPath);
@@ -405,23 +784,72 @@ function saveSettings() {
 function setSetting(key, value, updateMenu = true) {
     settings[key] = value;
     saveSettings();
-    renderLoadedVideoInfo();
-    refreshFolderLibrary();
+
+    if (key === 'darkMode') {
+        applyTheme();
+    } else if (key === 'showNotifications' && !value && toastContainer) {
+        [...toastContainer.querySelectorAll('.toast')].forEach((toast) => dismissToast(toast));
+    } else {
+        renderLoadedVideoInfo();
+        refreshFolderLibrary();
+    }
 
     if (updateMenu) {
         window.electronAPI.updateMenuSettings(settings);
     }
 }
 
-// Helper function to update status
+function dismissToast(toast) {
+    if (!toast || toast.classList.contains('dismissed')) {
+        return;
+    }
+
+    clearTimeout(toast._dismissTimer);
+    toast.classList.remove('visible');
+    toast.classList.add('dismissed');
+    setTimeout(() => toast.remove(), 280);
+}
+
 function updateStatus(message, type = 'info') {
-    statusDiv.textContent = message;
-    statusDiv.className = `status ${type}`;
-    setTimeout(() => {
-        if (statusDiv.className === `status ${type}`) {
-            statusDiv.className = 'status';
-        }
-    }, 3000);
+    if (!toastContainer || !message || !settings.showNotifications) {
+        return;
+    }
+
+    const toast = document.createElement('div');
+    const messageEl = document.createElement('p');
+    const closeButton = document.createElement('button');
+
+    toast.className = `toast ${type}`;
+    toast.dataset.toastId = String(++toastIdCounter);
+    messageEl.className = 'toast-message';
+    messageEl.textContent = message;
+    closeButton.type = 'button';
+    closeButton.className = 'toast-close';
+    closeButton.setAttribute('aria-label', 'Dismiss notification');
+    closeButton.textContent = '×';
+    closeButton.addEventListener('click', () => dismissToast(toast));
+
+    toast.appendChild(messageEl);
+    toast.appendChild(closeButton);
+    toastContainer.appendChild(toast);
+
+    requestAnimationFrame(() => {
+        toast.classList.add('visible');
+    });
+
+    toast._dismissTimer = setTimeout(() => dismissToast(toast), TOAST_DURATION_MS);
+}
+
+function getVideoDurationLabel() {
+    const seconds = Number.isFinite(videoDuration) && videoDuration > 0
+        ? videoDuration
+        : currentVideo?.duration;
+
+    if (!Number.isFinite(seconds) || seconds <= 0) {
+        return '';
+    }
+
+    return formatDurationTime(seconds);
 }
 
 async function loadLosslessCutPoints() {
@@ -442,6 +870,7 @@ async function loadLosslessCutPoints() {
 
         if (Number.isFinite(videoInfo.duration) && videoInfo.duration > 0) {
             videoDuration = videoInfo.duration;
+            renderLoadedVideoInfo();
         }
 
         losslessCutPoints = videoInfo.keyframes || [];
@@ -464,28 +893,183 @@ function highlightSelectedFolderVideo() {
 function renderLoadedVideoInfo() {
     if (!currentVideo) {
         fileInfo.innerHTML = `
-            <h3>No Video Loaded</h3>
-            <p>Open a folder or select a video file to begin.</p>
+            <div class="file-info-body">
+                <h3>No Video Loaded</h3>
+                <p>Open a folder or select a video file to begin.</p>
+            </div>
         `;
         return;
     }
 
+    const durationLabel = getVideoDurationLabel();
+    const audioLabel = currentAudioTracks.length > 1
+        ? ` · ${currentAudioTracks.length} audio tracks`
+        : '';
+
     fileInfo.innerHTML = `
-        <h3>Loaded Video</h3>
-        <p><strong>${currentVideo.name}</strong></p>
-        <p>Size: ${formatBytes(currentVideo.size)}</p>
-        ${settings.showDeleteOption ? `
-            <div class="file-info-actions">
-                <button class="btn-danger" id="deleteCurrentVideoBtn">Delete Video</button>
-            </div>
-        ` : ''}
+        <div class="file-info-body">
+            <h3>Loaded Video</h3>
+            <p><strong>${currentVideo.name}</strong> · ${formatBytes(currentVideo.size)}${durationLabel ? ` · ${durationLabel}` : ''}${audioLabel}</p>
+        </div>
     `;
+}
 
-    const deleteCurrentVideoBtn = document.getElementById('deleteCurrentVideoBtn');
-
-    if (deleteCurrentVideoBtn) {
-        deleteCurrentVideoBtn.addEventListener('click', () => deleteVideo(currentVideo));
+function loadAudioTrackSelections() {
+    try {
+        const stored = localStorage.getItem(AUDIO_TRACKS_SETTING);
+        audioTrackSelectionsByPath = stored ? JSON.parse(stored) : {};
+    } catch (error) {
+        console.error('Could not load audio track selections:', error);
+        audioTrackSelectionsByPath = {};
     }
+}
+
+function saveAudioTrackSelections() {
+    localStorage.setItem(AUDIO_TRACKS_SETTING, JSON.stringify(audioTrackSelectionsByPath));
+}
+
+function getAllAudioTrackIndexes(tracks) {
+    return tracks.map((track) => track.index);
+}
+
+function getSavedAudioTrackIndexes(path, tracks) {
+    if (!tracks.length) {
+        return [];
+    }
+
+    const saved = audioTrackSelectionsByPath[path];
+
+    if (!Array.isArray(saved) || !saved.length) {
+        return getAllAudioTrackIndexes(tracks);
+    }
+
+    const validIndexes = new Set(tracks.map((track) => track.index));
+    const filtered = saved.filter((index) => validIndexes.has(index));
+
+    return filtered.length ? filtered : getAllAudioTrackIndexes(tracks);
+}
+
+function formatAudioTrackLabel(track) {
+    const parts = [`Track ${track.trackNumber}`];
+
+    if (track.title) {
+        parts.push(track.title);
+    }
+
+    if (track.language) {
+        parts.push(track.language.toUpperCase());
+    }
+
+    return parts.join(' · ');
+}
+
+function formatAudioTrackMeta(track) {
+    const parts = [`Stream ${track.index}`];
+
+    if (track.codec) {
+        parts.push(track.codec.toUpperCase());
+    }
+
+    if (track.channels) {
+        parts.push(`${track.channels} ch`);
+    }
+
+    return parts.join(' · ');
+}
+
+function updateAudioTracksButton() {
+    const hasMultiple = currentAudioTracks.length > 1;
+
+    audioTracksBtn.hidden = !hasMultiple;
+
+    if (!hasMultiple) {
+        return;
+    }
+
+    const selectedCount = selectedAudioTrackIndexes.length;
+    const total = currentAudioTracks.length;
+
+    audioTracksBtn.textContent = selectedCount === total
+        ? `Audio (${total})`
+        : `Audio (${selectedCount}/${total})`;
+}
+
+function openAudioTracksModal() {
+    if (currentAudioTracks.length <= 1) {
+        return;
+    }
+
+    renderAudioTracksList(selectedAudioTrackIndexes);
+    audioTracksModal.classList.add('open');
+    audioTracksModal.setAttribute('aria-hidden', 'false');
+}
+
+function closeAudioTracksModal() {
+    audioTracksModal.classList.remove('open');
+    audioTracksModal.setAttribute('aria-hidden', 'true');
+}
+
+function renderAudioTracksList(selectedIndexes) {
+    const selectedSet = new Set(selectedIndexes);
+
+    audioTracksList.innerHTML = '';
+
+    currentAudioTracks.forEach((track) => {
+        const option = document.createElement('label');
+        const checkbox = document.createElement('input');
+        const details = document.createElement('div');
+        const title = document.createElement('span');
+        const meta = document.createElement('span');
+
+        option.className = 'audio-track-option';
+        checkbox.type = 'checkbox';
+        checkbox.value = String(track.index);
+        checkbox.checked = selectedSet.has(track.index);
+
+        details.className = 'audio-track-details';
+        title.className = 'audio-track-title';
+        title.textContent = formatAudioTrackLabel(track);
+        meta.className = 'audio-track-meta';
+        meta.textContent = formatAudioTrackMeta(track);
+
+        details.appendChild(title);
+        details.appendChild(meta);
+        option.appendChild(checkbox);
+        option.appendChild(details);
+        audioTracksList.appendChild(option);
+    });
+}
+
+function getModalSelectedAudioTrackIndexes() {
+    return [...audioTracksList.querySelectorAll('input[type="checkbox"]')]
+        .filter((checkbox) => checkbox.checked)
+        .map((checkbox) => Number(checkbox.value));
+}
+
+function applyAudioTracksFromModal() {
+    const selected = getModalSelectedAudioTrackIndexes();
+
+    if (!selected.length) {
+        updateStatus('Select at least one audio track for export', 'error');
+        return;
+    }
+
+    selectedAudioTrackIndexes = selected;
+
+    if (currentVideoPath) {
+        audioTrackSelectionsByPath[currentVideoPath] = selected;
+        saveAudioTrackSelections();
+    }
+
+    updateAudioTracksButton();
+    closeAudioTracksModal();
+    updateStatus(`${selected.length} audio track${selected.length === 1 ? '' : 's'} selected for export`, 'success');
+}
+
+function selectAllAudioTracksInModal() {
+    audioTracksList.querySelectorAll('input[type="checkbox"]').forEach((checkbox) => {
+        checkbox.checked = true;
+    });
 }
 
 function getLibrarySearchQuery() {
@@ -579,11 +1163,29 @@ function clearLibrarySearch() {
 async function openVideo(video) {
     currentVideo = video;
     currentVideoPath = video.path;
-    videoPlayer.src = toFileUrl(currentVideoPath);
+
+    let playbackPath = currentVideoPath;
+
+    try {
+        const playbackSource = await window.electronAPI.getPlaybackSource(currentVideoPath);
+        playbackPath = playbackSource.playbackPath || currentVideoPath;
+        currentAudioTracks = playbackSource.audioTracks || [];
+        currentVideoStreamIndex = Number.isFinite(Number(playbackSource.videoStreamIndex))
+            ? Number(playbackSource.videoStreamIndex)
+            : 0;
+    } catch (error) {
+        console.error('Error loading playback source:', error);
+        currentAudioTracks = [];
+        currentVideoStreamIndex = 0;
+    }
+
+    selectedAudioTrackIndexes = getSavedAudioTrackIndexes(currentVideoPath, currentAudioTracks);
+    updateAudioTracksButton();
+
+    videoPlayer.src = toFileUrl(playbackPath);
     videoPlayer.load();
     renderLoadedVideoInfo();
 
-    updateStatus(`Loaded: ${video.name}`, 'success');
     highlightSelectedFolderVideo();
 
     videoPlayer.onloadedmetadata = () => {
@@ -594,7 +1196,8 @@ async function openVideo(video) {
         renderLosslessCutPoints();
         updateTrimSlider();
         updatePlayPauseButton();
-        updateStatus(`Video loaded. Duration: ${formatTime(videoDuration)}`, 'success');
+        renderLoadedVideoInfo();
+        updateStatus(`Loaded ${video.name}`, 'success');
     };
 
     await loadLosslessCutPoints();
@@ -657,7 +1260,7 @@ function renderFolderVideos(videos) {
         if (settings.showDeleteOption) {
             deleteButton.type = 'button';
             deleteButton.className = 'video-delete-button';
-            deleteButton.textContent = '×';
+            deleteButton.innerHTML = '<span class="video-delete-icon" aria-hidden="true">×</span>';
             deleteButton.setAttribute('aria-label', `Delete ${video.name}`);
             deleteButton.title = 'Delete video';
             deleteButton.addEventListener('click', () => deleteVideo(video));
@@ -678,6 +1281,9 @@ function clearCurrentVideo() {
 
     currentVideo = null;
     currentVideoPath = null;
+    currentAudioTracks = [];
+    selectedAudioTrackIndexes = [];
+    currentVideoStreamIndex = 0;
     videoDuration = 0;
     startTime = 0;
     endTime = 0;
@@ -687,6 +1293,8 @@ function clearCurrentVideo() {
     syncTimeInputs();
     updateTrimSlider();
     updatePlayPauseButton();
+    updateAudioTracksButton();
+    closeAudioTracksModal();
     renderLoadedVideoInfo();
     highlightSelectedFolderVideo();
 }
@@ -871,7 +1479,7 @@ function setStart() {
         return;
     }
     setStartTime(videoPlayer.currentTime);
-    updateStatus(`Start time set to ${formatTime(startTime)}`, 'success');
+    updateStatus(`Start time set to ${formatEditableTime(startTime)}`, 'success');
 }
 
 // Set end time
@@ -881,7 +1489,7 @@ function setEnd() {
         return;
     }
     setEndTime(videoPlayer.currentTime);
-    updateStatus(`End time set to ${formatTime(endTime)}`, 'success');
+    updateStatus(`End time set to ${formatEditableTime(endTime)}`, 'success');
 }
 
 // Reset times
@@ -1007,15 +1615,67 @@ function handlePlaybackShortcut(event) {
 }
 
 async function advanceToNextVideo() {
+    const nextVideo = getNextFolderVideo();
+
+    if (!nextVideo) {
+        return false;
+    }
+
+    await openVideo(nextVideo);
+    return true;
+}
+
+function getNextFolderVideo() {
     const videos = getVisibleFolderVideos();
     const currentIndex = videos.findIndex((video) => video.path === currentVideoPath);
 
     if (currentIndex === -1 || currentIndex >= videos.length - 1) {
-        return false;
+        return null;
     }
 
-    await openVideo(videos[currentIndex + 1]);
-    return true;
+    return videos[currentIndex + 1];
+}
+
+async function maybePromptDeleteSourceVideo(trimmedSize) {
+    if (!settings.promptDeleteSourceAfterTrim || !currentVideo) {
+        return;
+    }
+
+    if (!Number.isFinite(currentVideo.size) || currentVideo.size <= trimmedSize) {
+        return;
+    }
+
+    try {
+        const confirmation = await window.electronAPI.confirmDeleteSource(currentVideo.path);
+
+        if (!confirmation?.confirmed) {
+            return;
+        }
+
+        await deleteVideo(currentVideo);
+    } catch (error) {
+        console.error('Error deleting original video:', error);
+        updateStatus('Error deleting original video: ' + (error.message || 'Unknown error'), 'error');
+    }
+}
+
+async function handleTrimSuccess(result, savePath) {
+    const wasExpanded = result.actualStartTime < startTime || result.actualEndTime > endTime;
+    const trimDetails = wasExpanded
+        ? ` Lossless range: ${formatTime(result.actualStartTime)} to ${formatTime(result.actualEndTime)}.`
+        : '';
+    const successMessage = `Success. Video saved to ${savePath} (${(result.size / (1024 * 1024)).toFixed(2)} MB).${trimDetails}`;
+    const nextVideo = settings.autoAdvance ? getNextFolderVideo() : null;
+
+    await maybePromptDeleteSourceVideo(result.size);
+
+    if (nextVideo) {
+        await openVideo(nextVideo);
+        updateStatus(`${successMessage} Loaded next clip: ${nextVideo.name}.`, 'success');
+        return;
+    }
+
+    updateStatus(successMessage, 'success');
 }
 
 // Trim video
@@ -1025,8 +1685,13 @@ async function trimVideo() {
         return;
     }
     
-    startTime = parseFloat(startTimeInput.value);
-    endTime = parseFloat(endTimeInput.value);
+    startTime = parseTimeInput(startTimeInput.value);
+    endTime = parseTimeInput(endTimeInput.value);
+
+    if (!Number.isFinite(startTime) || !Number.isFinite(endTime)) {
+        updateStatus('Invalid time. Use HH:MM:SS (e.g. 00:01:30)', 'error');
+        return;
+    }
     
     if (startTime >= endTime) {
         updateStatus('Start time must be less than end time', 'error');
@@ -1037,44 +1702,41 @@ async function trimVideo() {
         updateStatus('End time cannot exceed video duration', 'error');
         return;
     }
+
+    if (currentAudioTracks.length > 0 && selectedAudioTrackIndexes.length === 0) {
+        updateStatus('Select at least one audio track for export', 'error');
+        return;
+    }
     
-    // Ask where to save
-    const savePath = await window.electronAPI.saveDialog({
-        defaultPath: buildDefaultSaveName(currentVideoPath, startTime, endTime)
-    });
+    const savePath = await resolveTrimSavePath(currentVideoPath, startTime, endTime);
+
     if (!savePath) {
-        updateStatus('Save cancelled', 'info');
+        if (!settings.autoSaveEnabled) {
+            updateStatus('Save cancelled', 'info');
+        }
+
         return;
     }
     
     updateStatus('Trimming video... This may take a moment', 'info');
     
     try {
-        const result = await window.electronAPI.trimVideo({
+        const trimPayload = {
             inputPath: currentVideoPath,
             startTime: startTime,
             endTime: endTime,
-            outputPath: savePath
-        });
+            outputPath: savePath,
+            videoStreamIndex: currentVideoStreamIndex
+        };
+
+        if (currentAudioTracks.length > 0) {
+            trimPayload.audioStreamIndexes = selectedAudioTrackIndexes;
+        }
+
+        const result = await window.electronAPI.trimVideo(trimPayload);
         
         if (result.success) {
-            const wasExpanded = result.actualStartTime < startTime || result.actualEndTime > endTime;
-            const trimDetails = wasExpanded
-                ? ` Lossless range: ${formatTime(result.actualStartTime)} to ${formatTime(result.actualEndTime)}.`
-                : '';
-
-            const successMessage = `Success. Video saved to ${savePath} (${(result.size / (1024 * 1024)).toFixed(2)} MB).${trimDetails}`;
-
-            if (settings.autoAdvance) {
-                const advanced = await advanceToNextVideo();
-
-                if (advanced) {
-                    updateStatus(`${successMessage} Loaded next clip: ${currentVideo.name}.`, 'success');
-                    return;
-                }
-            }
-
-            updateStatus(successMessage, 'success');
+            await handleTrimSuccess(result, savePath);
         }
     } catch (error) {
         console.error('Error trimming video:', error);
@@ -1086,7 +1748,10 @@ async function trimVideo() {
 selectVideoBtn.addEventListener('click', loadVideo);
 selectFolderBtn.addEventListener('click', () => loadVideoFolder());
 librarySearch.addEventListener('input', refreshFolderLibrary);
-videoSortSelect.addEventListener('change', refreshFolderLibrary);
+videoSortSelect.addEventListener('change', () => {
+    saveSortPreference();
+    refreshFolderLibrary();
+});
 playPauseBtn.addEventListener('click', togglePlayback);
 videoPlayer.addEventListener('click', togglePlayback);
 prevKeyframeBtn.addEventListener('click', () => seekKeyframe('previous'));
@@ -1094,15 +1759,59 @@ nextKeyframeBtn.addEventListener('click', () => seekKeyframe('next'));
 setStartBtn.addEventListener('click', setStart);
 setEndBtn.addEventListener('click', setEnd);
 resetBtn.addEventListener('click', resetTimes);
+screenshotBtn.addEventListener('click', saveScreenshot);
+audioTracksBtn.addEventListener('click', openAudioTracksModal);
+audioTracksSelectAllBtn.addEventListener('click', selectAllAudioTracksInModal);
+audioTracksCancelBtn.addEventListener('click', closeAudioTracksModal);
+audioTracksApplyBtn.addEventListener('click', applyAudioTracksFromModal);
+audioTracksModal.addEventListener('click', (event) => {
+    if (event.target === audioTracksModal) {
+        closeAudioTracksModal();
+    }
+});
+document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && audioTracksModal.classList.contains('open')) {
+        closeAudioTracksModal();
+    }
+});
 trimBtn.addEventListener('click', trimVideo);
-window.electronAPI.onMenuSettingChanged(({ key, value }) => setSetting(key, value, false));
+window.electronAPI.onMenuSettingChanged(async ({ key, value }) => {
+    if (key === 'autoSaveFolder') {
+        setSetting('autoSaveFolder', value, false);
+        return;
+    }
+
+    if (key === 'autoSaveEnabled' && value && !settings.autoSaveFolder) {
+        const folderPath = await window.electronAPI.selectOutputFolder();
+
+        if (!folderPath) {
+            setSetting('autoSaveEnabled', false, true);
+            return;
+        }
+
+        settings.autoSaveFolder = folderPath;
+        setSetting('autoSaveEnabled', true, true);
+        return;
+    }
+
+    setSetting(key, value, false);
+});
 window.electronAPI.onShortcut(runShortcutAction);
 document.addEventListener('keydown', handlePlaybackShortcut);
-startTimeInput.addEventListener('change', () => updateTimeFromInput('start'));
-endTimeInput.addEventListener('change', () => updateTimeFromInput('end'));
+function bindTimeInput(input, type) {
+    input.addEventListener('change', () => updateTimeFromInput(type));
+    input.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            updateTimeFromInput(type);
+            input.blur();
+        }
+    });
+}
+
+bindTimeInput(startTimeInput, 'start');
+bindTimeInput(endTimeInput, 'end');
 trimSlider.addEventListener('pointerdown', beginTimelineScrub);
-trimSlider.addEventListener('pointermove', updateTimelineTooltip);
-trimSlider.addEventListener('pointerleave', hideTimelineTooltip);
 startHandle.addEventListener('pointerdown', (event) => beginTrimHandleDrag('start', event));
 endHandle.addEventListener('pointerdown', (event) => beginTrimHandleDrag('end', event));
 document.addEventListener('pointermove', updateActiveTrimHandle);
@@ -1115,11 +1824,9 @@ videoPlayer.addEventListener('pause', updatePlayPauseButton);
 videoPlayer.addEventListener('pause', stopPlayheadLoop);
 videoPlayer.addEventListener('ended', updatePlayPauseButton);
 videoPlayer.addEventListener('ended', stopPlayheadLoop);
-videoPlayer.addEventListener('seeked', updatePlayheadMarker);
-
 // Update time inputs when video time changes
 videoPlayer.addEventListener('timeupdate', () => {
-    if (videoPlayer.currentTime < startTime - 0.05) {
+    if (!isTrimHandlePreviewing && !isScrubbingTimeline && videoPlayer.currentTime < startTime - 0.05) {
         videoPlayer.currentTime = startTime;
     }
 
@@ -1128,8 +1835,23 @@ videoPlayer.addEventListener('timeupdate', () => {
     }
 });
 
+videoPlayer.addEventListener('seeked', () => {
+    if ((isScrubbingTimeline || isTrimHandlePreviewing) && Number.isFinite(scrubPreviewTime)) {
+        if (Math.abs(videoPlayer.currentTime - scrubPreviewTime) > 0.05) {
+            applyVideoSeek(scrubPreviewTime);
+        } else {
+            updatePlayheadMarker(scrubPreviewTime);
+        }
+
+        return;
+    }
+
+    updatePlayheadMarker();
+});
+
 // Initialize
 loadSettings();
+loadAudioTrackSelections();
 setupDragAndDrop();
 restoreLastFolder();
 console.log('Video Trimmer Pro loaded');

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -12,6 +12,7 @@
         }
 
         :root {
+            color-scheme: light;
             --bg: #f5f5f7;
             --surface: rgba(255, 255, 255, 0.78);
             --surface-strong: rgba(255, 255, 255, 0.94);
@@ -24,19 +25,138 @@
             --success: #34c759;
             --danger: #ff3b30;
             --shadow: 0 18px 60px rgba(0, 0, 0, 0.12);
+            --body-bg:
+                radial-gradient(circle at top left, rgba(255, 255, 255, 0.95), transparent 34%),
+                linear-gradient(145deg, #fbfbfd 0%, #f5f5f7 42%, #e9e9ed 100%);
+            --input-bg: rgba(255, 255, 255, 0.86);
+            --card-bg: rgba(255, 255, 255, 0.7);
+            --card-hover-bg: #ffffff;
+            --control-bg: rgba(255, 255, 255, 0.82);
+            --panel-soft-bg: rgba(255, 255, 255, 0.68);
+            --track-bg: rgba(0, 0, 0, 0.09);
+            --keyframe-marker: rgba(0, 0, 0, 0.28);
+            --range-bg: rgba(0, 113, 227, 0.28);
+            --focus-ring: rgba(0, 113, 227, 0.12);
+            --focus-ring-strong: rgba(0, 113, 227, 0.25);
+            --focus-border: rgba(0, 113, 227, 0.6);
+            --tooltip-bg: rgba(29, 29, 31, 0.88);
+            --tooltip-text: #ffffff;
+            --btn-secondary-bg: rgba(255, 255, 255, 0.8);
+            --btn-secondary-hover: #ffffff;
+            --btn-success-bg: #1d1d1f;
+            --btn-success-text: #ffffff;
+            --btn-success-border: #000000;
+            --btn-success-hover: #000000;
+            --thumb-bg: #1d1d1f;
+            --thumb-text: rgba(255, 255, 255, 0.65);
+            --selected-border: rgba(0, 113, 227, 0.45);
+            --selected-shadow: rgba(0, 113, 227, 0.1);
+            --control-shadow: rgba(0, 0, 0, 0.08);
+            --handle-shadow: rgba(0, 113, 227, 0.28);
+            --primary-shadow: rgba(0, 113, 227, 0.26);
+            --success-shadow: rgba(0, 0, 0, 0.18);
+            --danger-text: #b42318;
+            --danger-bg: rgba(255, 59, 48, 0.08);
+            --danger-bg-hover: rgba(255, 59, 48, 0.16);
+            --danger-border: rgba(255, 59, 48, 0.36);
+            --status-success-bg: rgba(52, 199, 89, 0.12);
+            --status-success-border: rgba(52, 199, 89, 0.28);
+            --status-success-text: #1f7a3a;
+            --status-error-bg: rgba(255, 59, 48, 0.12);
+            --status-error-border: rgba(255, 59, 48, 0.28);
+            --status-error-text: #b42318;
+            --status-info-bg: rgba(0, 113, 227, 0.1);
+            --status-info-border: rgba(0, 113, 227, 0.22);
+            --status-info-text: #005bb5;
+            --radius-shell: 20px;
+            --radius-surface: 14px;
+            --radius-button: 10px;
+            --radius-control: 10px;
+            --radius-nested: 8px;
+            --radius-small: 6px;
+            --radius-video: 10px;
+            --radius-circle: 9999px;
+            --radius-handle: 9px;
+            --radius-time-inner: max(var(--radius-small), calc(var(--radius-button) - 4px));
+            --pad-shell: 16px;
+            --pad-video-panel: 10px;
+            --pad-file-info: 10px;
+            --pad-modal: 16px;
+            --radius-shell-inner: max(var(--radius-small), calc(var(--radius-shell) - var(--pad-shell)));
+            --radius-video-inner: var(--radius-video);
+            --radius-surface-inner: max(var(--radius-small), calc(var(--radius-surface) - var(--pad-file-info)));
+            --radius-modal-inner: max(var(--radius-small), calc(var(--radius-surface) - var(--pad-modal)));
+        }
+
+        :root[data-theme="dark"] {
+            color-scheme: dark;
+            --bg: #1c1c1e;
+            --surface: rgba(44, 44, 46, 0.88);
+            --surface-strong: rgba(58, 58, 60, 0.96);
+            --text: #f5f5f7;
+            --muted: #a1a1a6;
+            --border: rgba(255, 255, 255, 0.12);
+            --button-border: rgba(255, 255, 255, 0.18);
+            --accent: #0a84ff;
+            --accent-strong: #409cff;
+            --success: #30d158;
+            --danger: #ff453a;
+            --shadow: 0 18px 60px rgba(0, 0, 0, 0.45);
+            --body-bg:
+                radial-gradient(circle at top left, rgba(72, 72, 74, 0.55), transparent 34%),
+                linear-gradient(145deg, #2c2c2e 0%, #1c1c1e 42%, #121214 100%);
+            --input-bg: rgba(44, 44, 46, 0.96);
+            --card-bg: rgba(50, 50, 52, 0.92);
+            --card-hover-bg: rgba(72, 72, 74, 0.98);
+            --control-bg: rgba(44, 44, 46, 0.94);
+            --panel-soft-bg: rgba(44, 44, 46, 0.8);
+            --track-bg: rgba(255, 255, 255, 0.12);
+            --keyframe-marker: rgba(255, 255, 255, 0.34);
+            --range-bg: rgba(10, 132, 255, 0.42);
+            --focus-ring: rgba(10, 132, 255, 0.22);
+            --focus-ring-strong: rgba(10, 132, 255, 0.34);
+            --focus-border: rgba(10, 132, 255, 0.72);
+            --tooltip-bg: rgba(242, 242, 247, 0.92);
+            --tooltip-text: #1d1d1f;
+            --btn-secondary-bg: rgba(58, 58, 60, 0.96);
+            --btn-secondary-hover: rgba(72, 72, 74, 1);
+            --btn-success-bg: #f5f5f7;
+            --btn-success-text: #1d1d1f;
+            --btn-success-border: rgba(255, 255, 255, 0.2);
+            --btn-success-hover: #ffffff;
+            --thumb-bg: #000000;
+            --thumb-text: rgba(255, 255, 255, 0.65);
+            --selected-border: rgba(10, 132, 255, 0.55);
+            --selected-shadow: rgba(10, 132, 255, 0.18);
+            --control-shadow: rgba(0, 0, 0, 0.28);
+            --handle-shadow: rgba(10, 132, 255, 0.34);
+            --primary-shadow: rgba(10, 132, 255, 0.3);
+            --success-shadow: rgba(0, 0, 0, 0.35);
+            --danger-text: #ff9f96;
+            --danger-bg: rgba(255, 69, 58, 0.14);
+            --danger-bg-hover: rgba(255, 69, 58, 0.24);
+            --danger-border: rgba(255, 69, 58, 0.42);
+            --status-success-bg: rgba(48, 209, 88, 0.14);
+            --status-success-border: rgba(48, 209, 88, 0.32);
+            --status-success-text: #8ce8a8;
+            --status-error-bg: rgba(255, 69, 58, 0.14);
+            --status-error-border: rgba(255, 69, 58, 0.32);
+            --status-error-text: #ff9f96;
+            --status-info-bg: rgba(10, 132, 255, 0.16);
+            --status-info-border: rgba(10, 132, 255, 0.32);
+            --status-info-text: #7ec0ff;
         }
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            background:
-                radial-gradient(circle at top left, rgba(255, 255, 255, 0.95), transparent 34%),
-                linear-gradient(145deg, #fbfbfd 0%, #f5f5f7 42%, #e9e9ed 100%);
+            background: var(--body-bg);
             height: 100vh;
             overflow: hidden;
             color: var(--text);
         }
 
         .container {
+            --library-width: 360px;
             display: flex;
             flex-direction: column;
             height: 100vh;
@@ -44,21 +164,47 @@
         }
 
         /* Header */
-        .header {
+        .app-header {
+            display: grid;
+            grid-template-columns: var(--library-width) minmax(0, 1fr);
+            gap: 18px;
+            align-items: center;
             margin-bottom: 18px;
+            flex-shrink: 0;
         }
 
-        .header h1 {
-            font-size: clamp(1.9rem, 3vw, 3rem);
+        .header-video-column {
+            min-width: 0;
+        }
+
+        .header-video-row {
+            display: flex;
+            align-items: stretch;
+            gap: 12px;
+            width: 100%;
+        }
+
+        .brand {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            flex-shrink: 0;
+            min-width: 200px;
+        }
+
+        .brand h1 {
+            font-size: clamp(1.5rem, 2.2vw, 2.2rem);
             font-weight: 700;
             letter-spacing: -0.04em;
-            margin-bottom: 4px;
+            margin-bottom: 2px;
+            line-height: 1.1;
         }
 
-        .header p {
+        .brand p {
             color: var(--muted);
-            font-size: 0.98em;
+            font-size: 0.82em;
             letter-spacing: -0.01em;
+            line-height: 1.3;
         }
 
         /* Main Content */
@@ -70,29 +216,17 @@
         }
 
         .library-panel {
-            width: 360px;
+            width: var(--library-width);
             min-width: 340px;
             background: var(--surface);
             border: 1px solid var(--border);
-            border-radius: 28px;
-            padding: 16px;
+            border-radius: var(--radius-shell);
+            padding: var(--pad-shell);
             box-shadow: var(--shadow);
             display: flex;
             flex-direction: column;
             gap: 14px;
             min-height: 0;
-        }
-
-        .library-header h2 {
-            font-size: 1.05em;
-            letter-spacing: -0.03em;
-            margin-bottom: 4px;
-        }
-
-        .library-header p {
-            color: var(--muted);
-            font-size: 0.82em;
-            line-height: 1.35;
         }
 
         .folder-summary {
@@ -113,7 +247,7 @@
             width: 100%;
             padding: 9px 12px;
             border: 1px solid var(--button-border);
-            border-radius: 12px;
+            border-radius: var(--radius-control);
             background: var(--bg);
             color: var(--text);
             font-size: 0.86em;
@@ -126,12 +260,12 @@
         .library-search:focus {
             outline: none;
             border-color: var(--accent);
-            box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.12);
+            box-shadow: 0 0 0 3px var(--focus-ring);
         }
 
         .library-panel.drag-over {
             border-color: var(--accent);
-            box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.12);
+            box-shadow: 0 0 0 3px var(--focus-ring);
         }
 
         .folder-toolbar {
@@ -151,8 +285,8 @@
             min-width: 174px;
             padding: 8px 10px;
             border: 1px solid var(--button-border);
-            border-radius: 12px;
-            background: rgba(255, 255, 255, 0.86);
+            border-radius: var(--radius-control);
+            background: var(--input-bg);
             color: var(--text);
             font: inherit;
             font-size: 0.85em;
@@ -164,21 +298,23 @@
             grid-template-columns: 1fr;
             gap: 10px;
             overflow-y: auto;
-            padding-right: 4px;
+            padding-right: 10px;
             min-height: 0;
         }
 
         .video-card {
+            --card-pad: 8px;
             display: grid;
             grid-template-columns: 1fr auto;
             gap: 10px;
             width: 100%;
             height: 92px;
             min-width: 0;
-            padding: 8px;
+            padding: var(--card-pad);
             border: 1px solid var(--border);
-            border-radius: 18px;
-            background: rgba(255, 255, 255, 0.7);
+            border-radius: var(--radius-shell-inner);
+            background: var(--card-bg);
+            overflow: hidden;
             color: var(--text);
             text-align: left;
         }
@@ -198,20 +334,20 @@
         }
 
         .video-card:hover {
-            background: white;
+            background: var(--card-hover-bg);
             transform: translateY(-1px);
         }
 
         .video-card.selected {
-            border-color: rgba(0, 113, 227, 0.45);
-            box-shadow: 0 0 0 4px rgba(0, 113, 227, 0.1);
+            border-color: var(--selected-border);
+            box-shadow: 0 0 0 4px var(--selected-shadow);
         }
 
         .video-thumb {
             width: 104px;
             height: 68px;
-            border-radius: 12px;
-            background: #1d1d1f;
+            border-radius: max(var(--radius-small), calc(var(--radius-shell-inner) - var(--card-pad)));
+            background: var(--thumb-bg);
             object-fit: cover;
         }
 
@@ -219,7 +355,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            color: rgba(255, 255, 255, 0.65);
+            color: var(--thumb-text);
             font-size: 0.72em;
         }
 
@@ -245,39 +381,56 @@
         }
 
         .video-delete-button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
             align-self: center;
+            flex-shrink: 0;
             width: 32px;
             height: 32px;
             padding: 0;
-            border-color: rgba(255, 59, 48, 0.36);
-            color: #b42318;
-            background: rgba(255, 59, 48, 0.08);
-            font-size: 1em;
+            border-color: var(--danger-border);
+            color: var(--danger-text);
+            background: var(--danger-bg);
+            font-size: 1.2rem;
+            line-height: 1;
+            letter-spacing: 0;
+            border-radius: var(--radius-circle);
+        }
+
+        .video-delete-icon {
+            display: block;
+            line-height: 1;
+            transform: translateY(-0.5px);
         }
 
         .video-delete-button:hover {
-            background: rgba(255, 59, 48, 0.16);
+            background: var(--danger-bg-hover);
+            transform: none;
         }
 
         /* Video Panel */
         .video-panel {
-            flex: 2;
+            flex: 1;
+            min-width: 0;
             background: var(--surface);
             border: 1px solid var(--border);
-            border-radius: 28px;
-            padding: 18px;
+            border-radius: var(--radius-shell);
+            padding: var(--pad-video-panel);
             box-shadow: var(--shadow);
             display: flex;
             flex-direction: column;
             gap: 14px;
+            overflow: visible;
         }
 
         .video-container {
             flex: 1;
             background: #000;
-            border-radius: 22px;
+            border-radius: var(--radius-video-inner);
             overflow: hidden;
             position: relative;
+            border: 1px solid var(--border);
             box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
         }
 
@@ -286,42 +439,104 @@
             height: 100%;
             object-fit: contain;
             cursor: pointer;
+            border-radius: inherit;
         }
 
-        .video-controls {
+        .video-controls-row {
             display: flex;
-            justify-content: center;
             align-items: center;
-            gap: 6px;
-            width: fit-content;
+            justify-content: center;
+            gap: 10px;
+            width: 100%;
+            min-height: 54px;
+        }
+
+        .video-controls-outer {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-width: 0;
+        }
+
+        .video-controls-outer-left {
+            justify-content: flex-end;
+        }
+
+        .video-controls-outer-right {
+            justify-content: flex-start;
+        }
+
+        .video-side-btn {
+            flex: none;
+        }
+
+        .screenshot-button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 0;
+        }
+
+        .screenshot-button svg {
+            display: block;
+            width: 18px;
+            height: 18px;
+            stroke: currentColor;
+            fill: none;
+            stroke-width: 1.75;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .video-side-btn.icon-button {
+            width: 42px;
+            height: 42px;
+            padding: 0;
+            font-size: 0.95em;
+        }
+
+        .video-side-btn.reset-button {
+            color: var(--muted);
+        }
+
+        .video-side-btn:not(.icon-button) {
+            min-width: 42px;
+            height: 42px;
+            padding: 0 14px;
+        }
+
+        .video-controls-cluster {
+            flex: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
             max-width: 100%;
-            margin: 0 auto;
-            padding: 6px;
-            background: rgba(255, 255, 255, 0.82);
-            border: 1px solid var(--border);
-            border-radius: 999px;
-            box-shadow: 0 10px 28px rgba(0, 0, 0, 0.08);
+        }
+
+        .video-play-center {
+            flex: none;
+            width: 48px;
+            height: 48px;
+            padding: 0;
+            font-size: 1.08em;
+            line-height: 1;
+            border-radius: var(--radius-circle);
         }
 
         .trim-slider-panel {
-            background: rgba(255, 255, 255, 0.68);
+            background: var(--panel-soft-bg);
             border: 1px solid var(--border);
-            border-radius: 20px;
-            padding: 14px;
-        }
-
-        .slider-labels {
-            display: flex;
-            justify-content: space-between;
-            font-size: 0.85em;
-            margin-bottom: 10px;
-            color: var(--muted);
+            border-radius: var(--radius-video-inner);
+            padding: 34px 14px 14px;
+            overflow: visible;
         }
 
         .trim-slider {
             position: relative;
             height: 46px;
             user-select: none;
+            overflow: visible;
         }
 
         .slider-track,
@@ -333,11 +548,11 @@
             top: 50%;
             transform: translateY(-50%);
             height: 12px;
-            border-radius: 999px;
+            border-radius: var(--radius-small);
         }
 
         .slider-track {
-            background: rgba(0, 0, 0, 0.09);
+            background: var(--track-bg);
             overflow: hidden;
         }
 
@@ -351,11 +566,11 @@
             top: -10px;
             width: 1px;
             height: 32px;
-            background: rgba(0, 0, 0, 0.28);
+            background: var(--keyframe-marker);
         }
 
         .selected-range {
-            background: rgba(0, 113, 227, 0.28);
+            background: var(--range-bg);
             z-index: 2;
         }
 
@@ -372,17 +587,18 @@
 
         .timeline-tooltip {
             position: absolute;
-            top: -28px;
-            padding: 4px 7px;
-            border-radius: 999px;
-            background: rgba(29, 29, 31, 0.88);
-            color: #fff;
+            top: -30px;
+            padding: 4px 8px;
+            border-radius: var(--radius-nested);
+            background: var(--tooltip-bg);
+            color: var(--tooltip-text);
             font-size: 0.75em;
+            font-weight: 600;
             white-space: nowrap;
             transform: translateX(-50%);
             pointer-events: none;
             opacity: 0;
-            z-index: 6;
+            z-index: 30;
         }
 
         .timeline-tooltip.visible {
@@ -398,9 +614,9 @@
             padding: 0;
             flex: none;
             border: 2px solid var(--surface-strong);
-            border-radius: 999px;
+            border-radius: var(--radius-handle);
             background: var(--accent);
-            box-shadow: 0 6px 16px rgba(0, 113, 227, 0.28);
+            box-shadow: 0 6px 16px var(--handle-shadow);
             transform: translate(-50%, -50%);
             cursor: ew-resize;
         }
@@ -410,7 +626,7 @@
         }
 
         .trim-handle:focus {
-            outline: 3px solid rgba(0, 113, 227, 0.25);
+            outline: 3px solid var(--focus-ring-strong);
             outline-offset: 2px;
         }
 
@@ -418,106 +634,109 @@
             transform: translate(-50%, -50%) scale(0.98);
         }
 
-        .slider-help {
-            margin-top: 8px;
-            font-size: 0.78em;
-            color: var(--muted);
-        }
-
-        /* Controls Panel */
-        .controls-panel {
+        .file-info {
             flex: 1;
+            min-width: 0;
             background: var(--surface);
             border: 1px solid var(--border);
-            border-radius: 28px;
-            padding: 18px;
+            border-radius: var(--radius-surface);
+            padding: var(--pad-file-info) 14px;
             box-shadow: var(--shadow);
             display: flex;
             flex-direction: column;
-            gap: 16px;
+            justify-content: center;
+            min-height: 52px;
+            overflow: hidden;
         }
 
-        .file-info {
+        .header-trim-button {
+            flex: none;
+            align-self: center;
+            padding: 10px 18px;
+            white-space: nowrap;
+        }
+
+        .file-info-body {
             background: var(--surface-strong);
             border: 1px solid var(--border);
-            padding: 16px;
-            border-radius: 20px;
+            border-radius: var(--radius-surface-inner);
+            padding: 8px 12px;
         }
 
         .file-info h3 {
-            margin-bottom: 10px;
-            font-size: 1em;
-            letter-spacing: -0.02em;
+            margin-bottom: 2px;
+            font-size: 0.72em;
+            letter-spacing: 0.04em;
+            color: var(--muted);
+            font-weight: 600;
+            text-transform: uppercase;
         }
 
         .file-info p {
-            font-size: 0.85em;
-            color: var(--muted);
+            font-size: 0.86em;
+            color: var(--text);
             word-break: break-all;
-            margin-top: 5px;
+            margin: 0;
+            line-height: 1.25;
         }
 
-        .file-info-actions {
+        .time-bound-control {
             display: flex;
-            margin-top: 12px;
+            align-items: center;
+            flex: none;
+            border: 1px solid var(--button-border);
+            border-radius: var(--radius-button);
+            background: var(--btn-secondary-bg);
+            overflow: hidden;
         }
 
-        .file-info-actions button {
-            flex: 1;
+        .time-bound-control .time-bound-button {
+            flex: none;
+            border: 0;
+            border-radius: 0;
+            border-right: 1px solid var(--button-border);
+            background: transparent;
+            padding: 0 12px;
+            height: 42px;
+            min-width: 84px;
+            font-size: 0.86em;
         }
 
-        .trim-controls {
+        .time-bound-control .time-bound-button:hover {
+            background: var(--btn-secondary-hover);
+            transform: none;
+        }
+
+        .time-bound-input-wrap {
             display: flex;
-            flex-direction: column;
-            gap: 15px;
+            align-items: center;
+            padding: 0 10px 0 8px;
         }
 
-        .time-input-group {
-            display: flex;
-            gap: 10px;
-        }
-
-        .time-input {
-            flex: 1;
-        }
-
-        .time-input label {
-            display: block;
-            color: var(--muted);
-            font-size: 0.78em;
-            font-weight: 600;
-            letter-spacing: 0.01em;
-            margin-bottom: 5px;
-        }
-
-        .time-input input {
-            width: 100%;
-            padding: 10px 12px;
+        .time-bound-input-wrap input {
+            width: 96px;
+            height: 28px;
+            padding: 0 6px;
             border: 1px solid var(--border);
+            border-radius: var(--radius-time-inner);
             background: var(--surface-strong);
             color: var(--text);
-            border-radius: 14px;
             font-family: 'SF Mono', ui-monospace, Menlo, Consolas, monospace;
-            font-size: 0.95em;
+            font-size: 0.88em;
+            box-sizing: border-box;
         }
 
-        .time-input input:focus {
+        .time-bound-input-wrap input:focus {
             outline: none;
-            border-color: rgba(0, 113, 227, 0.6);
-            box-shadow: 0 0 0 4px rgba(0, 113, 227, 0.12);
-        }
-
-        .buttons {
-            display: flex;
-            gap: 10px;
-            margin-top: 10px;
+            border-color: var(--focus-border);
+            box-shadow: 0 0 0 3px var(--focus-ring);
         }
 
         button {
             flex: 0 0 auto;
             padding: 11px 14px;
             border: 1px solid var(--button-border);
-            border-radius: 999px;
+            border-radius: var(--radius-button);
             font-size: 0.94em;
             font-weight: 600;
             letter-spacing: -0.01em;
@@ -525,35 +744,27 @@
             transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
         }
 
-        .video-controls button,
-        .buttons button {
-            flex: 1;
+        button.icon-button,
+        .video-side-btn.icon-button,
+        .toast-close {
+            border-radius: var(--radius-circle);
         }
 
-        .video-controls .trim-action-button {
-            flex: 0 1 112px;
-            min-width: 96px;
+        .video-controls-cluster > .icon-button {
+            flex: none;
         }
 
-        .video-controls .icon-button {
+        .video-controls-cluster .time-bound-control {
+            flex: none;
+        }
+
+        .video-controls-cluster > .icon-button:not(.video-play-center) {
             flex: 0 0 42px;
             width: 42px;
             height: 42px;
             padding: 0;
             font-size: 1.05em;
             line-height: 1;
-        }
-
-        .video-controls .play-button {
-            flex-basis: 48px;
-            width: 48px;
-            height: 48px;
-            font-size: 1.08em;
-        }
-
-        .video-controls .reset-button {
-            color: var(--muted);
-            font-size: 0.95em;
         }
 
         button:active {
@@ -569,17 +780,17 @@
         .btn-primary:hover {
             transform: translateY(-2px);
             background: var(--accent-strong);
-            box-shadow: 0 10px 24px rgba(0, 113, 227, 0.26);
+            box-shadow: 0 10px 24px var(--primary-shadow);
         }
 
         .btn-secondary {
-            background: rgba(255, 255, 255, 0.8);
+            background: var(--btn-secondary-bg);
             border-color: var(--button-border);
             color: var(--text);
         }
 
         .btn-secondary:hover {
-            background: white;
+            background: var(--btn-secondary-hover);
             transform: translateY(-2px);
         }
 
@@ -589,45 +800,234 @@
         }
 
         .btn-success {
-            background: var(--text);
-            color: white;
+            background: var(--btn-success-bg);
+            border-color: var(--btn-success-border);
+            color: var(--btn-success-text);
         }
 
         .btn-success:hover {
-            background: #000;
+            background: var(--btn-success-hover);
+            color: var(--btn-success-text);
             transform: translateY(-2px);
-            box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+            box-shadow: 0 10px 24px var(--success-shadow);
         }
 
-        .status {
-            margin-top: 10px;
+        .toast-container {
+            position: fixed;
+            right: 20px;
+            bottom: 20px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            align-items: flex-end;
+            gap: 10px;
+            max-width: min(380px, calc(100vw - 40px));
+            pointer-events: none;
+        }
+
+        .toast {
+            pointer-events: auto;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            width: 100%;
             padding: 12px 14px;
-            background: var(--surface-strong);
             border: 1px solid var(--border);
-            border-radius: 16px;
-            font-size: 0.85em;
+            border-radius: var(--radius-surface);
+            background: var(--surface-strong);
+            box-shadow: var(--shadow);
+            color: var(--text);
+            opacity: 0;
+            transform: translateX(16px);
+            transition: opacity 0.28s ease, transform 0.28s ease;
+        }
+
+        .toast.visible {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        .toast.dismissed {
+            opacity: 0;
+            transform: translateX(16px);
+        }
+
+        .toast-message {
+            flex: 1;
+            margin: 0;
+            font-size: 0.84em;
+            line-height: 1.35;
+            word-break: break-word;
+        }
+
+        .toast-close {
+            flex: none;
+            width: 24px;
+            height: 24px;
+            padding: 0;
+            border: 1px solid var(--button-border);
+            background: transparent;
             color: var(--muted);
+            font-size: 1rem;
+            line-height: 1;
+            cursor: pointer;
         }
 
-        .status.success {
-            background: rgba(52, 199, 89, 0.12);
-            border-color: rgba(52, 199, 89, 0.28);
-            color: #1f7a3a;
+        .toast-close:hover {
+            color: var(--text);
+            background: var(--btn-secondary-bg);
+            transform: none;
         }
 
-        .status.error {
-            background: rgba(255, 59, 48, 0.12);
-            border-color: rgba(255, 59, 48, 0.28);
-            color: #b42318;
+        .toast.success {
+            background: var(--status-success-bg);
+            border-color: var(--status-success-border);
         }
 
-        .status.info {
-            background: rgba(0, 113, 227, 0.1);
-            border-color: rgba(0, 113, 227, 0.22);
-            color: #005bb5;
+        .toast.success .toast-message {
+            color: var(--status-success-text);
+        }
+
+        .toast.error {
+            background: var(--status-error-bg);
+            border-color: var(--status-error-border);
+        }
+
+        .toast.error .toast-message {
+            color: var(--status-error-text);
+        }
+
+        .toast.info {
+            background: var(--status-info-bg);
+            border-color: var(--status-info-border);
+        }
+
+        .toast.info .toast-message {
+            color: var(--status-info-text);
+        }
+
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 1100;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            background: rgba(0, 0, 0, 0.45);
+        }
+
+        .modal-overlay.open {
+            display: flex;
+        }
+
+        .modal-panel {
+            width: min(480px, 100%);
+            max-height: min(80vh, 640px);
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            padding: var(--pad-modal);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-surface);
+            background: var(--surface-strong);
+            box-shadow: var(--shadow);
+            overflow: hidden;
+        }
+
+        .modal-panel h2 {
+            font-size: 1.05em;
+            letter-spacing: -0.02em;
+        }
+
+        .modal-help {
+            color: var(--muted);
+            font-size: 0.84em;
+            line-height: 1.4;
+        }
+
+        .audio-tracks-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            overflow-y: auto;
+            max-height: 320px;
+            padding-right: 4px;
+        }
+
+        .audio-track-option {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-modal-inner);
+            background: var(--surface);
+            cursor: pointer;
+        }
+
+        .audio-track-option input {
+            margin-top: 2px;
+        }
+
+        .audio-track-details {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            min-width: 0;
+        }
+
+        .audio-track-title {
+            font-size: 0.9em;
+            font-weight: 600;
+        }
+
+        .audio-track-meta {
+            color: var(--muted);
+            font-size: 0.8em;
+            line-height: 1.35;
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .modal-actions button {
+            flex: 0 0 auto;
         }
 
         /* Responsive */
+        @media (max-width: 1100px) {
+            .app-header {
+                grid-template-columns: 1fr;
+            }
+
+            .brand {
+                min-width: 0;
+            }
+
+            .header-video-row {
+                flex-direction: column;
+            }
+
+            .header-trim-button {
+                align-self: stretch;
+                width: 100%;
+            }
+
+            .toast-container {
+                right: 12px;
+                bottom: 12px;
+                left: 12px;
+                max-width: none;
+                align-items: stretch;
+            }
+        }
+
         @media (max-width: 768px) {
             .main-content {
                 flex-direction: column;
@@ -638,6 +1038,24 @@
                 min-width: 0;
                 max-height: 260px;
             }
+
+            .time-bound-input-wrap input {
+                width: 88px;
+            }
+
+            .video-controls-cluster {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+
+            .video-controls-row {
+                flex-wrap: wrap;
+            }
+
+            .video-controls-outer {
+                flex: 1 1 100%;
+                justify-content: center;
+            }
             
             .container {
                 padding: 10px;
@@ -647,17 +1065,42 @@
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <h1>Video Trimmer Pro</h1>
-            <p>Lossless cuts with clear timing and simple controls.</p>
+        <header class="app-header">
+            <div class="brand">
+                <h1>Video Trimmer Pro</h1>
+                <p>Lossless cuts with clear timing and simple controls.</p>
+            </div>
+
+            <div class="header-video-column">
+                <div class="header-video-row">
+                    <div class="file-info" id="fileInfo">
+                        <div class="file-info-body">
+                            <h3>No Video Loaded</h3>
+                            <p>Open a folder or select a video file to begin.</p>
+                        </div>
+                    </div>
+                    <button class="btn-success header-trim-button" id="trimBtn" title="Ctrl+Enter">Trim and Save</button>
+                </div>
+            </div>
+        </header>
+
+        <div class="modal-overlay" id="audioTracksModal" aria-hidden="true">
+            <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="audioTracksTitle">
+                <h2 id="audioTracksTitle">Audio Tracks</h2>
+                <p class="modal-help">Choose which audio tracks to keep when exporting. All tracks are selected by default. Playback uses the first track only.</p>
+                <div class="audio-tracks-list" id="audioTracksList"></div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" id="audioTracksSelectAllBtn">Select All</button>
+                    <button type="button" class="btn-secondary" id="audioTracksCancelBtn">Cancel</button>
+                    <button type="button" class="btn-primary" id="audioTracksApplyBtn">Apply</button>
+                </div>
+            </div>
         </div>
+
+        <div class="toast-container" id="toastContainer" aria-live="polite" aria-relevant="additions"></div>
 
         <div class="main-content">
             <div class="library-panel" id="libraryPanel">
-                <div class="library-header">
-                    <h2>Folder</h2>
-                    <p>Open a folder, search clips, or drag videos and folders here.</p>
-                </div>
                 <div class="source-buttons">
                     <button class="btn-primary" id="selectFolderBtn" title="Ctrl+Shift+O">Open Folder</button>
                     <button class="btn-secondary" id="selectVideoBtn" title="Ctrl+O">Open File</button>
@@ -689,57 +1132,47 @@
                 <div class="video-container">
                     <video id="videoPlayer" preload="auto"></video>
                 </div>
-                <div class="video-controls">
-                    <button class="btn-secondary trim-action-button" id="setStartBtn" title="Set start (I)">Set Start</button>
-                    <button class="btn-secondary icon-button" id="prevKeyframeBtn" aria-label="Seek previous keyframe" title="Previous keyframe (,)">‹</button>
-                    <button class="btn-primary icon-button play-button" id="playPauseBtn" aria-label="Play video" title="Play / pause (Space)">▶</button>
-                    <button class="btn-secondary icon-button" id="nextKeyframeBtn" aria-label="Seek next keyframe" title="Next keyframe (.)">›</button>
-                    <button class="btn-secondary trim-action-button" id="setEndBtn" title="Set end (O)">Set End</button>
-                    <button class="btn-secondary icon-button reset-button" id="resetBtn" aria-label="Reset trim" title="Reset trim (R)">↺</button>
-                </div>
                 <div class="trim-slider-panel">
-                    <div class="slider-labels">
-                        <span id="sliderStartLabel">Start: 0:00.0</span>
-                        <span id="sliderEndLabel">End: 0:00.0</span>
-                    </div>
                     <div class="trim-slider" id="trimSlider">
                         <div class="slider-track"></div>
                         <div class="keyframe-markers" id="keyframeMarkers"></div>
                         <div class="selected-range" id="selectedRange"></div>
                         <div class="playhead-marker" id="playheadMarker"></div>
-                        <div class="timeline-tooltip" id="timelineTooltip">0.0s</div>
+                        <div class="timeline-tooltip" id="timelineTooltip">00:00:00</div>
                         <button class="trim-handle start" id="startHandle" type="button" aria-label="Trim start"></button>
                         <button class="trim-handle end" id="endHandle" type="button" aria-label="Trim end"></button>
                     </div>
-                    <div class="slider-help">Vertical lines show lossless cut points. Drag the handles to adjust the trim. Shortcuts: Space play · I/O in-out · , . keyframes · Shift+←→ seek · R reset.</div>
                 </div>
-            </div>
-
-            <div class="controls-panel">
-                <div class="file-info" id="fileInfo">
-                    <h3>No Video Loaded</h3>
-                    <p>Open a folder or select a video file to begin.</p>
-                </div>
-
-                <div class="trim-controls">
-                    <div class="time-input-group">
-                        <div class="time-input">
-                            <label>Start Time (seconds)</label>
-                            <input type="number" id="startTime" step="0.1" value="0">
+                <div class="video-controls-row">
+                    <div class="video-controls-outer video-controls-outer-left">
+                        <button class="btn-secondary icon-button video-side-btn reset-button" id="resetBtn" type="button" aria-label="Reset trim" title="Reset trim (R)">↺</button>
+                    </div>
+                    <div class="video-controls-cluster">
+                        <div class="time-bound-control">
+                            <button type="button" class="time-bound-button" id="setStartBtn" title="Set start (I)">Set Start</button>
+                            <div class="time-bound-input-wrap">
+                                <input type="text" id="startTime" value="00:00:00" inputmode="numeric" spellcheck="false" placeholder="00:00:00" aria-label="Start time (HH:MM:SS)">
+                            </div>
                         </div>
-                        <div class="time-input">
-                            <label>End Time (seconds)</label>
-                            <input type="number" id="endTime" step="0.1" value="0">
+                        <button class="btn-secondary icon-button" id="prevKeyframeBtn" type="button" aria-label="Seek previous keyframe" title="Previous keyframe (,)">‹</button>
+                        <button class="btn-primary icon-button play-button video-play-center" id="playPauseBtn" type="button" aria-label="Play video" title="Play / pause (Space)">▶</button>
+                        <button class="btn-secondary icon-button" id="nextKeyframeBtn" type="button" aria-label="Seek next keyframe" title="Next keyframe (.)">›</button>
+                        <div class="time-bound-control">
+                            <button type="button" class="time-bound-button" id="setEndBtn" title="Set end (O)">Set End</button>
+                            <div class="time-bound-input-wrap">
+                                <input type="text" id="endTime" value="00:00:00" inputmode="numeric" spellcheck="false" placeholder="00:00:00" aria-label="End time (HH:MM:SS)">
+                            </div>
                         </div>
                     </div>
-                    
-                    <div class="buttons">
-                        <button class="btn-success" id="trimBtn" title="Ctrl+Enter">Trim and Save</button>
+                    <div class="video-controls-outer video-controls-outer-right">
+                        <button class="btn-secondary icon-button video-side-btn screenshot-button" id="screenshotBtn" type="button" aria-label="Save screenshot" title="Save screenshot">
+                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M5 9h3.2L10.2 7h3.6l1.9 2H19a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2z"></path>
+                                <circle cx="12" cy="14" r="3.25"></circle>
+                            </svg>
+                        </button>
+                        <button class="btn-secondary video-side-btn" id="audioTracksBtn" type="button" title="Choose export audio tracks" hidden>Audio</button>
                     </div>
-                </div>
-
-                <div class="status" id="status">
-                    Ready to trim videos
                 </div>
             </div>
         </div>

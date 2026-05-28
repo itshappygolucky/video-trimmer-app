@@ -2,6 +2,26 @@
 
 All notable changes to **Video Trimmer Pro** are documented in this file.
 
+## [1.2.0] - 2026-05-27
+
+### Added
+
+- **Multi-audio tracks** — Detect multiple audio streams; playback uses the first track; export dialog to choose which tracks to keep (all by default)
+- **Screenshots** — Camera button saves the current frame as PNG (respects auto-save folder when enabled)
+- **Live timeline scrub** — Video preview updates while dragging the timeline (with smooth catch-up on heavy files)
+- **Persistent playhead time** — Current position always shown above the timeline at the playhead
+- **Show notifications** — Settings toggle for toast messages (off by default)
+
+### Changed
+
+- **Trim time inputs** — Start/end fields use `HH:MM:SS` instead of seconds
+- **Playback controls** — Play/pause centered on the video row; reset, screenshot, and audio as standalone side buttons; trim controls in a flat bar without outer pill wrappers
+- **Corner styling** — Nested rounded rectangles for panels and controls; circular icon buttons only where appropriate
+- **Trim and Save button** — Readable text in dark mode
+- **Folder list** — Extra spacing before the scrollbar
+
+[1.2.0]: https://github.com/itshappygolucky/video-trimmer-app/releases/tag/v1.2.0
+
 ## [1.1.0] - 2026-05-27
 
 ### Added

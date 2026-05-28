@@ -1,17 +1,130 @@
-const { app, BrowserWindow, ipcMain, dialog, Menu, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Menu, shell, screen } = require('electron');
 const path = require('path');
 const { execFile } = require('child_process');
 const fs = require('fs');
 const crypto = require('crypto');
 
 let mainWindow;
+let saveWindowStateTimeout = null;
 const VIDEO_EXTENSIONS = new Set(['.mp4', '.mov', '.avi', '.mkv', '.webm']);
+const DEFAULT_WINDOW_BOUNDS = {
+    width: 1440,
+    height: 800
+};
+
+function getWindowStatePath() {
+    return path.join(app.getPath('userData'), 'window-state.json');
+}
+
+function isBoundsOnScreen(bounds) {
+    if (!Number.isFinite(bounds.x) || !Number.isFinite(bounds.y)) {
+        return false;
+    }
+
+    return screen.getAllDisplays().some((display) => {
+        const area = display.workArea ?? display.bounds;
+        const right = bounds.x + bounds.width;
+        const bottom = bounds.y + bounds.height;
+
+        return (
+            bounds.x < area.x + area.width
+            && right > area.x
+            && bounds.y < area.y + area.height
+            && bottom > area.y
+        );
+    });
+}
+
+function loadWindowState() {
+    try {
+        const savedState = JSON.parse(fs.readFileSync(getWindowStatePath(), 'utf8'));
+        const width = Number(savedState.width);
+        const height = Number(savedState.height);
+        const x = Number(savedState.x);
+        const y = Number(savedState.y);
+        const bounds = {
+            width: Number.isFinite(width) && width >= 960 ? width : DEFAULT_WINDOW_BOUNDS.width,
+            height: Number.isFinite(height) && height >= 600 ? height : DEFAULT_WINDOW_BOUNDS.height
+        };
+
+        if (Number.isFinite(x) && Number.isFinite(y)) {
+            bounds.x = x;
+            bounds.y = y;
+        }
+
+        const validatedBounds = isBoundsOnScreen(bounds)
+            ? bounds
+            : {
+                width: bounds.width,
+                height: bounds.height
+            };
+
+        return {
+            bounds: validatedBounds,
+            isMaximized: Boolean(savedState.isMaximized)
+        };
+    } catch (error) {
+        return {
+            bounds: { ...DEFAULT_WINDOW_BOUNDS },
+            isMaximized: false
+        };
+    }
+}
+
+function saveWindowState() {
+    if (!mainWindow) {
+        return;
+    }
+
+    try {
+        const isMaximized = mainWindow.isMaximized();
+        const bounds = isMaximized ? mainWindow.getNormalBounds() : mainWindow.getBounds();
+
+        fs.writeFileSync(getWindowStatePath(), JSON.stringify({
+            ...bounds,
+            isMaximized
+        }));
+    } catch (error) {
+        console.error('Could not save window state:', error);
+    }
+}
+
+function scheduleWindowStateSave() {
+    clearTimeout(saveWindowStateTimeout);
+    saveWindowStateTimeout = setTimeout(saveWindowState, 400);
+}
 let menuSettings = {
     appendCutTimes: true,
     rememberLastFolder: false,
     showDeleteOption: true,
-    autoAdvance: false
+    autoAdvance: false,
+    darkMode: false,
+    autoSaveEnabled: false,
+    autoSaveFolder: '',
+    promptDeleteSourceAfterTrim: false,
+    showNotifications: false
 };
+
+async function chooseAutoSaveFolder() {
+    const result = await dialog.showOpenDialog(mainWindow, {
+        properties: ['openDirectory', 'createDirectory'],
+        title: 'Choose Auto-Save Folder',
+        defaultPath: menuSettings.autoSaveFolder || undefined
+    });
+
+    if (result.canceled || !result.filePaths.length) {
+        return null;
+    }
+
+    const folderPath = result.filePaths[0];
+    menuSettings.autoSaveFolder = folderPath;
+    mainWindow?.webContents.send('menu-setting-changed', {
+        key: 'autoSaveFolder',
+        value: folderPath
+    });
+    buildApplicationMenu();
+    return folderPath;
+}
 
 function runCommand(command, args) {
     return new Promise((resolve, reject) => {
@@ -84,6 +197,117 @@ function getVideoFileInfo(filePath) {
         name: path.basename(filePath),
         size: stats.size
     };
+}
+
+function getInputCacheKey(inputPath) {
+    const stats = fs.statSync(inputPath);
+
+    return crypto
+        .createHash('sha1')
+        .update(`${inputPath}:${stats.size}:${stats.mtimeMs}`)
+        .digest('hex');
+}
+
+function getPlaybackCachePath(inputPath) {
+    const cacheDir = path.join(app.getPath('userData'), 'playback-cache');
+
+    return path.join(cacheDir, `${getInputCacheKey(inputPath)}.mp4`);
+}
+
+async function getAudioTracks(inputPath) {
+    try {
+        const { stdout } = await runCommand('ffprobe', [
+            '-v', 'error',
+            '-show_entries', 'stream=index,codec_name,codec_type,channels:stream_tags=language,title',
+            '-select_streams', 'a',
+            '-of', 'json',
+            inputPath
+        ]);
+        const result = JSON.parse(stdout);
+
+        return (result.streams || [])
+            .filter((stream) => stream.codec_type === 'audio')
+            .map((stream, trackNumber) => ({
+                index: Number(stream.index),
+                trackNumber: trackNumber + 1,
+                codec: stream.codec_name || 'unknown',
+                channels: Number(stream.channels) || null,
+                language: stream.tags?.language || '',
+                title: stream.tags?.title || stream.tags?.handler_name || ''
+            }))
+            .filter((stream) => Number.isFinite(stream.index));
+    } catch (error) {
+        console.error('Could not read audio tracks:', error);
+        return [];
+    }
+}
+
+async function getVideoStreamIndex(inputPath) {
+    try {
+        const { stdout } = await runCommand('ffprobe', [
+            '-v', 'error',
+            '-show_entries', 'stream=index,codec_type',
+            '-select_streams', 'v',
+            '-of', 'json',
+            inputPath
+        ]);
+        const result = JSON.parse(stdout);
+        const videoStream = (result.streams || []).find((stream) => stream.codec_type === 'video');
+
+        return Number.isFinite(Number(videoStream?.index)) ? Number(videoStream.index) : 0;
+    } catch (error) {
+        console.error('Could not read video stream index:', error);
+        return 0;
+    }
+}
+
+async function ensurePlaybackVideo(inputPath, audioTracks, videoStreamIndex) {
+    if (audioTracks.length <= 1) {
+        return inputPath;
+    }
+
+    const cacheDir = path.join(app.getPath('userData'), 'playback-cache');
+    const playbackPath = getPlaybackCachePath(inputPath);
+    const firstAudioIndex = audioTracks[0].index;
+
+    fs.mkdirSync(cacheDir, { recursive: true });
+
+    if (fs.existsSync(playbackPath)) {
+        return playbackPath;
+    }
+
+    await runCommand('ffmpeg', [
+        '-y',
+        '-i', inputPath,
+        '-map', `0:${videoStreamIndex}`,
+        '-map', `0:${firstAudioIndex}`,
+        '-c', 'copy',
+        playbackPath
+    ]);
+
+    return fs.existsSync(playbackPath) ? playbackPath : inputPath;
+}
+
+async function getPlaybackSource(inputPath) {
+    const audioTracks = await getAudioTracks(inputPath);
+    const videoStreamIndex = await getVideoStreamIndex(inputPath);
+    const playbackPath = await ensurePlaybackVideo(inputPath, audioTracks, videoStreamIndex);
+
+    return {
+        playbackPath,
+        audioTracks,
+        videoStreamIndex
+    };
+}
+
+function buildTrimStreamMaps(videoStreamIndex, audioStreamIndexes) {
+    const maps = ['-map', `0:${videoStreamIndex}`];
+
+    for (const streamIndex of audioStreamIndexes) {
+        maps.push('-map', `0:${streamIndex}`);
+    }
+
+    return maps;
 }
 
 async function getVideoDuration(inputPath) {
@@ -387,6 +611,70 @@ function buildApplicationMenu() {
                             value: menuItem.checked
                         });
                     }
+                },
+                {
+                    label: 'Auto-Save Trims to Folder',
+                    type: 'checkbox',
+                    checked: menuSettings.autoSaveEnabled,
+                    click: async (menuItem) => {
+                        if (menuItem.checked && !menuSettings.autoSaveFolder) {
+                            const folderPath = await chooseAutoSaveFolder();
+
+                            if (!folderPath) {
+                                menuItem.checked = false;
+                                return;
+                            }
+                        }
+
+                        menuSettings.autoSaveEnabled = menuItem.checked;
+                        mainWindow?.webContents.send('menu-setting-changed', {
+                            key: 'autoSaveEnabled',
+                            value: menuItem.checked
+                        });
+                        buildApplicationMenu();
+                    }
+                },
+                {
+                    label: 'Choose Auto-Save Folder...',
+                    enabled: menuSettings.autoSaveEnabled,
+                    click: () => chooseAutoSaveFolder()
+                },
+                {
+                    label: 'Ask to Delete Original After Trim',
+                    type: 'checkbox',
+                    checked: menuSettings.promptDeleteSourceAfterTrim,
+                    click: (menuItem) => {
+                        menuSettings.promptDeleteSourceAfterTrim = menuItem.checked;
+                        mainWindow?.webContents.send('menu-setting-changed', {
+                            key: 'promptDeleteSourceAfterTrim',
+                            value: menuItem.checked
+                        });
+                    }
+                },
+                {
+                    label: 'Show Notifications',
+                    type: 'checkbox',
+                    checked: menuSettings.showNotifications,
+                    click: (menuItem) => {
+                        menuSettings.showNotifications = menuItem.checked;
+                        mainWindow?.webContents.send('menu-setting-changed', {
+                            key: 'showNotifications',
+                            value: menuItem.checked
+                        });
+                    }
+                },
+                { type: 'separator' },
+                {
+                    label: 'Dark Mode',
+                    type: 'checkbox',
+                    checked: menuSettings.darkMode,
+                    click: (menuItem) => {
+                        menuSettings.darkMode = menuItem.checked;
+                        mainWindow?.webContents.send('menu-setting-changed', {
+                            key: 'darkMode',
+                            value: menuItem.checked
+                        });
+                    }
                 }
             ]
         },
@@ -403,9 +691,10 @@ function buildApplicationMenu() {
 }
 
 function createWindow() {
+    const { bounds, isMaximized } = loadWindowState();
+
     mainWindow = new BrowserWindow({
-        width: 1440,
-        height: 800,
+        ...bounds,
         webPreferences: {
             nodeIntegration: false,
             contextIsolation: true,
@@ -415,8 +704,16 @@ function createWindow() {
         title: 'Video Trimmer Pro'
     });
 
+    if (isMaximized) {
+        mainWindow.maximize();
+    }
+
+    mainWindow.on('resize', scheduleWindowStateSave);
+    mainWindow.on('move', scheduleWindowStateSave);
+    mainWindow.on('close', saveWindowState);
+
     mainWindow.loadFile('index.html');
-    
+
     // Open DevTools for debugging (optional)
     // mainWindow.webContents.openDevTools();
 }
@@ -473,6 +770,24 @@ ipcMain.handle('handle-dropped-paths', async (event, paths) => {
     return getVideosFromDroppedPaths(paths);
 });
 
+ipcMain.handle('confirm-delete-source', async (event, filePath) => {
+    if (typeof filePath !== 'string') {
+        throw new Error('Invalid video path');
+    }
+
+    const result = await dialog.showMessageBox(mainWindow, {
+        type: 'warning',
+        buttons: ['Keep Original', 'Move to Recycle Bin'],
+        defaultId: 0,
+        cancelId: 0,
+        title: 'Delete Original Video?',
+        message: `Delete the original "${path.basename(filePath)}"?`,
+        detail: 'Your trimmed clip was saved successfully. The original file is larger and will be moved to the Recycle Bin.'
+    });
+
+    return { confirmed: result.response === 1 };
+});
+
 ipcMain.handle('delete-video', async (event, filePath) => {
     if (typeof filePath !== 'string') {
         throw new Error('Invalid video path');
@@ -513,9 +828,13 @@ ipcMain.handle('get-video-info', async (event, inputPath) => {
     return getVideoInfo(inputPath);
 });
 
+ipcMain.handle('get-playback-source', async (event, inputPath) => {
+    return getPlaybackSource(inputPath);
+});
+
 // Handle lossless trimming
 ipcMain.handle('trim-video', async (event, data) => {
-    const { inputPath, startTime, endTime, outputPath } = data;
+    const { inputPath, startTime, endTime, outputPath, audioStreamIndexes, videoStreamIndex } = data;
 
     const start = Number(startTime);
     const end = Number(endTime);
@@ -533,13 +852,18 @@ ipcMain.handle('trim-video', async (event, data) => {
             throw new Error('Could not find valid lossless trim points');
         }
 
+        const resolvedVideoStreamIndex = Number.isFinite(Number(videoStreamIndex))
+            ? Number(videoStreamIndex)
+            : await getVideoStreamIndex(inputPath);
+        const resolvedAudioStreamIndexes = Array.isArray(audioStreamIndexes)
+            ? audioStreamIndexes.map((index) => Number(index)).filter((index) => Number.isFinite(index))
+            : (await getAudioTracks(inputPath)).map((track) => track.index);
         const args = [
             '-y',
             '-ss', losslessStart.toFixed(3),
             '-i', inputPath,
             '-t', duration.toFixed(3),
-            '-map', '0:v:0',
-            '-map', '0:a?',
+            ...buildTrimStreamMaps(resolvedVideoStreamIndex, resolvedAudioStreamIndexes),
             '-c', 'copy',
             '-avoid_negative_ts', 'make_zero',
             outputPath
@@ -567,6 +891,58 @@ ipcMain.handle('trim-video', async (event, data) => {
         console.error('FFmpeg error:', error);
         throw new Error(error.message || 'Unknown error');
     }
+});
+
+ipcMain.handle('select-output-folder', async () => chooseAutoSaveFolder());
+
+ipcMain.handle('resolve-save-path', async (event, { directory, fileName }) => {
+    if (typeof directory !== 'string' || typeof fileName !== 'string') {
+        throw new Error('Invalid save path options');
+    }
+
+    if (!fs.existsSync(directory)) {
+        throw new Error('Auto-save folder does not exist');
+    }
+
+    return path.join(directory, path.basename(fileName));
+});
+
+ipcMain.handle('screenshot-save-dialog', async (event, options = {}) => {
+    const result = await dialog.showSaveDialog(mainWindow, {
+        title: 'Save Screenshot',
+        defaultPath: options.defaultPath || 'screenshot.png',
+        filters: [
+            { name: 'PNG Image', extensions: ['png'] },
+            { name: 'All Files', extensions: ['*'] }
+        ]
+    });
+
+    if (!result.canceled) {
+        return result.filePath;
+    }
+
+    return null;
+});
+
+ipcMain.handle('save-screenshot', async (event, { filePath, imageData }) => {
+    if (typeof filePath !== 'string' || typeof imageData !== 'string') {
+        throw new Error('Invalid screenshot save options');
+    }
+
+    const base64 = imageData.replace(/^data:image\/\w+;base64,/, '');
+    fs.writeFileSync(filePath, Buffer.from(base64, 'base64'));
+
+    if (!fs.existsSync(filePath)) {
+        throw new Error('Screenshot could not be saved');
+    }
+
+    const stats = fs.statSync(filePath);
+
+    return {
+        success: true,
+        filePath,
+        size: stats.size
+    };
 });
 
 // Save dialog for trimmed video
